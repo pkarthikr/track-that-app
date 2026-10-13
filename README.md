@@ -25,7 +25,7 @@ Internal packages are consumed as TypeScript source (`exports` points at `src/in
 
 ## Prerequisites
 
-- **Node.js 22 LTS.** The version is pinned in `.nvmrc` and `engines`. Run `nvm use` (or `fnm use`) in the repo root.
+- **Node.js 26.** The version is pinned in `.nvmrc` and `engines`. Run `nvm use` (or `fnm use`) in the repo root.
 - **pnpm 12.11.2.** Pinned via the `packageManager` field. Enable it with `corepack enable`, or install it with `npm i -g pnpm@12.11.2`.
 - **AWS credentials are not required.** `cdk synth` works offline. Do not run `cdk bootstrap` or `cdk deploy` yet; deployment is out of scope for this skeleton.
 
@@ -62,7 +62,7 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 
 ## Notes and Decisions
 
-- **Node 22 pin vs. local Node 26.** The project targets Node 22 (`.nvmrc`, `engines`). Node 22 was installed locally via Homebrew for this work.
+- **Node 26 for development.** `.nvmrc`, `engines`, and CI all use Node 26. The Lambda bundle still targets `node22` (esbuild `--target`) to match the AWS Lambda runtime; change it once a Node 26 runtime is available there.
 - **Library packages are source-consumed.** Keeping `shared` and `core` as source avoids build-order problems in `pnpm -r`. If they are ever published, add an emit step.
 - **`api` is bundled, not `tsc`-compiled,** because its workspace dependency is TypeScript source. The bundle is CommonJS so the Lambda loads it without extra config.
 - **pnpm 12 build scripts.** pnpm blocks dependency install scripts by default. `esbuild` is allowed in `pnpm-workspace.yaml` (`allowBuilds`), since it needs its postinstall step.
