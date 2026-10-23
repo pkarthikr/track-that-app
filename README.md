@@ -1,6 +1,6 @@
 # TrackThat
 
-TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a hello-world skeleton: every package builds, typechecks, lints, and runs a trivial test, but there are no features, schemas, or deployments yet.
+TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The only feature is email and password sign-up and sign-in, backed by a Cognito user pool defined in CDK. Nothing is deployed yet, and there are no schemas.
 
 ## Folder Layout
 
@@ -83,7 +83,7 @@ Manual smoke test: register, receive the code by email, confirm, sign in, sign o
 
 - Add the first real feature to `packages/core` with tests.
 - Add a database schema and API routes in `services/api`.
-- Add a deploy pipeline once the stack has resources.
+- Add a deploy pipeline and do the first deploy of the stacks.
 - Add resend confirmation code.
 - Add password reset.
 - Protect API routes with the Cognito user pool.
