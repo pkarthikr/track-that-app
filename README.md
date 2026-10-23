@@ -74,6 +74,10 @@ One-time setup, done by a person with admin AWS credentials (the workflow does n
    - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` value.
    - `AWS_REGION`: the region you bootstrapped.
 
+Use the same AWS account and region throughout: the bootstrap, the `GithubOidcStack` deploy, the `AWS_REGION` variable, and every later workflow run. Deploying to a region that was not bootstrapped fails.
+
+Security note: the deploy role is effectively administrative, because it can assume the CDK bootstrap roles, and those deploy CloudFormation with an administrator-level execution role. Anyone who can push to `main` or merge a pull request controls what that role does. Turn on branch protection for `main` (pull request and review required, no direct pushes, no force-pushes) before the first deploy. The trust policy only accepts workflows running on `main`, so that protection is what guards the account.
+
 To deploy, open the Actions tab, choose Deploy, and Run workflow on `main`, or run `gh workflow run deploy.yml --ref main`. The workflow runs typecheck, lint, and test before it touches AWS. It refuses to run from any branch other than `main`, and the deploy role's trust policy only accepts `main` as well.
 
 ## Authentication
