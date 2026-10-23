@@ -44,6 +44,15 @@ describe("authApi", () => {
     });
   });
 
+  it("confirmSignUp trims whitespace around the code", async () => {
+    amplify.confirmSignUp.mockResolvedValue({});
+    await authApi.confirmSignUp("a@x.com", " 123456 ");
+    expect(amplify.confirmSignUp).toHaveBeenCalledWith({
+      username: "a@x.com",
+      confirmationCode: "123456",
+    });
+  });
+
   it("signIn resolves when Amplify reports isSignedIn", async () => {
     amplify.signIn.mockResolvedValue({
       isSignedIn: true,

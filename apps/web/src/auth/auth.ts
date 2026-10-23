@@ -74,7 +74,7 @@ export const authApi: AuthApi = {
   },
 
   async confirmSignUp(email, code) {
-    await wrap(() => confirmSignUp({ username: email.trim(), confirmationCode: code }));
+    await wrap(() => confirmSignUp({ username: email.trim(), confirmationCode: code.trim() }));
   },
 
   async signIn(email, password) {

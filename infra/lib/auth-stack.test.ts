@@ -15,9 +15,17 @@ describe("AuthStack", () => {
     });
   });
 
-  it("enforces an 8 character minimum password and no MFA or account recovery", () => {
+  it("enforces an 8 character mixed-class password and no MFA or account recovery", () => {
     template.hasResourceProperties("AWS::Cognito::UserPool", {
-      Policies: { PasswordPolicy: { MinimumLength: 8 } },
+      Policies: {
+        PasswordPolicy: {
+          MinimumLength: 8,
+          RequireLowercase: true,
+          RequireUppercase: true,
+          RequireNumbers: true,
+          RequireSymbols: true,
+        },
+      },
       MfaConfiguration: "OFF",
       AccountRecoverySetting: {
         RecoveryMechanisms: [{ Name: "admin_only", Priority: 1 }],
@@ -32,6 +40,12 @@ describe("AuthStack", () => {
       GenerateSecret: false,
       AllowedOAuthFlows: Match.absent(),
       AllowedOAuthFlowsUserPoolClient: false,
+    });
+  });
+
+  it("hides whether an account exists", () => {
+    template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
+      PreventUserExistenceErrors: "ENABLED",
     });
   });
 

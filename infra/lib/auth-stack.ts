@@ -14,7 +14,13 @@ export class AuthStack extends Stack {
       signInCaseSensitive: false,
       selfSignUpEnabled: true,
       autoVerify: { email: true },
-      passwordPolicy: { minLength: 8 },
+      passwordPolicy: {
+        minLength: 8,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+      },
       mfa: Mfa.OFF,
       accountRecovery: AccountRecovery.NONE,
     });
@@ -24,6 +30,7 @@ export class AuthStack extends Stack {
       disableOAuth: true,
       authFlows: { userSrp: true },
       enableTokenRevocation: true,
+      preventUserExistenceErrors: true,
       accessTokenValidity: Duration.hours(1),
       idTokenValidity: Duration.hours(1),
     });
