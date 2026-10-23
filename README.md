@@ -13,9 +13,10 @@ track-that-app/
 ├── packages/
 │   ├── shared/           # @trackthat/shared: cross-package constants (APP_NAME)
 │   └── core/             # @trackthat/core: domain logic placeholder
-├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack and a Cognito AuthStack
+├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, and a GithubOidcStack (deploy role)
 ├── .github/workflows/
-│   └── ci.yml            # PR and main CI: install, typecheck, lint, test, cdk synth
+│   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, cdk synth
+│   └── deploy.yml        # manual deploy via GitHub OIDC
 ├── tsconfig.base.json    # Shared strict TypeScript settings
 ├── eslint.config.mjs     # ESLint flat config (applies to every package)
 └── pnpm-workspace.yaml   # Workspace package globs
@@ -27,7 +28,7 @@ Internal packages are consumed as TypeScript source (`exports` points at `src/in
 
 - **Node.js 26.** The version is pinned in `.nvmrc` and `engines`. Run `nvm use` (or `fnm use`) in the repo root.
 - **pnpm 12.11.2.** Pinned via the `packageManager` field. Enable it with `corepack enable`, or install it with `npm i -g pnpm@12.11.2`.
-- **AWS credentials are not required.** `cdk synth` works offline. Do not run `cdk bootstrap` or `cdk deploy` yet; deployment is out of scope for this skeleton.
+- **AWS credentials are not needed to build, test, or `cdk synth`.** `cdk synth` works offline. They are needed only to deploy; see [Deploying](#deploying).
 
 ## Getting Started
 
@@ -58,13 +59,28 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, and `cdk synth`. There is no deploy job.
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, and `cdk synth`. It does not deploy; see [Deploying](#deploying).
+
+## Deploying
+
+`.github/workflows/deploy.yml` deploys the CDK stacks from GitHub Actions, authenticating to AWS through GitHub's OIDC provider (no stored AWS keys). There is a single environment, with no dev/prod separation yet. Only `TrackThatApi` and `TrackThatAuth` are deployed. The web app is not deployed, since there is no hosting yet.
+
+One-time setup, done by a person with admin AWS credentials (the workflow does not do this):
+
+1. Check that the account has no existing GitHub OIDC provider: `aws iam list-open-id-connect-providers`. `GithubOidcStack` creates one, and an account can hold only one for GitHub's URL, so an existing provider makes the first deploy of `GithubOidcStack` fail.
+2. Bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
+3. Deploy the role stack by hand: `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
+4. Set two repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
+   - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` value.
+   - `AWS_REGION`: the region you bootstrapped.
+
+To deploy, open the Actions tab, choose Deploy, and Run workflow on `main`, or run `gh workflow run deploy.yml --ref main`. The workflow runs typecheck, lint, and test before it touches AWS. It refuses to run from any branch other than `main`, and the deploy role's trust policy only accepts `main` as well.
 
 ## Authentication
 
 Sign-up and sign-in use an Amazon Cognito user pool, defined in `infra/lib/auth-stack.ts` (`AuthStack`, instantiated as `TrackThatAuth` in `infra/bin/app.ts`). New users register with an email and password, then must confirm the address with a 6-digit code sent by email. Resend-code does not exist yet, so an expired code currently blocks that email address from being confirmed through the UI.
 
-Nothing is deployed yet, so the first `cdk deploy` is a future step. After it, the web app is configured like this:
+See [Deploying](#deploying) for the first deploy. After it, the web app is configured like this:
 
 1. Copy `apps/web/.env.example` to `apps/web/.env.local`.
 2. Set `VITE_USER_POOL_ID` to the `UserPoolId` stack output and `VITE_USER_POOL_CLIENT_ID` to the `UserPoolClientId` stack output.
@@ -83,7 +99,10 @@ Manual smoke test: register, receive the code by email, confirm, sign in, sign o
 
 - Add the first real feature to `packages/core` with tests.
 - Add a database schema and API routes in `services/api`.
-- Add a deploy pipeline and do the first deploy of the stacks.
+- Run the first deploy (see [Deploying](#deploying)).
+- Add dev and prod stages.
+- Add SES email for the user pool.
+- Add web hosting.
 - Add resend confirmation code.
 - Add password reset.
 - Protect API routes with the Cognito user pool.
