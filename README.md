@@ -1,19 +1,19 @@
 # TrackThat
 
-TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a hello-world skeleton: every package builds, typechecks, lints, and runs a trivial test, but there are no features, schemas, or deployments yet.
+TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The only feature is email and password sign-up and sign-in, backed by a Cognito user pool defined in CDK. Nothing is deployed yet, and there are no schemas.
 
 ## Folder Layout
 
 ```
 track-that-app/
 ├── apps/
-│   └── web/              # @trackthat/web: Vite + React frontend (renders "Hello TrackThat")
+│   └── web/              # @trackthat/web: Vite + React frontend (auth screens: register, confirm, sign in)
 ├── services/
 │   └── api/              # @trackthat/api: Lambda handler returning { message: "hello" }
 ├── packages/
 │   ├── shared/           # @trackthat/shared: cross-package constants (APP_NAME)
 │   └── core/             # @trackthat/core: domain logic placeholder
-├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack
+├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack and a Cognito AuthStack
 ├── .github/workflows/
 │   └── ci.yml            # PR and main CI: install, typecheck, lint, test, cdk synth
 ├── tsconfig.base.json    # Shared strict TypeScript settings
@@ -60,6 +60,17 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 
 `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, and `cdk synth`. There is no deploy job.
 
+## Authentication
+
+Sign-up and sign-in use an Amazon Cognito user pool, defined in `infra/lib/auth-stack.ts` (`AuthStack`, instantiated as `TrackThatAuth` in `infra/bin/app.ts`). New users register with an email and password, then must confirm the address with a 6-digit code sent by email. Resend-code does not exist yet, so an expired code currently blocks that email address from being confirmed through the UI.
+
+Nothing is deployed yet, so the first `cdk deploy` is a future step. After it, the web app is configured like this:
+
+1. Copy `apps/web/.env.example` to `apps/web/.env.local`.
+2. Set `VITE_USER_POOL_ID` to the `UserPoolId` stack output and `VITE_USER_POOL_CLIENT_ID` to the `UserPoolClientId` stack output.
+
+Manual smoke test: register, receive the code by email, confirm, sign in, sign out, then sign in again and reload the page to check that the session is kept.
+
 ## Notes and Decisions
 
 - **Node 26 for development.** `.nvmrc`, `engines`, and CI all use Node 26. The Lambda bundle still targets `node22` (esbuild `--target`) to match the AWS Lambda runtime; change it once a Node 26 runtime is available there.
@@ -72,7 +83,10 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 
 - Add the first real feature to `packages/core` with tests.
 - Add a database schema and API routes in `services/api`.
-- Add a deploy pipeline once the stack has resources.
+- Add a deploy pipeline and do the first deploy of the stacks.
+- Add resend confirmation code.
+- Add password reset.
+- Protect API routes with the Cognito user pool.
 
 ## License
 

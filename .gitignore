@@ -3,5 +3,6 @@ dist
 cdk.out
 coverage
 .env*
+!.env.example
 *.log
 .DS_Store
