@@ -35,7 +35,7 @@ Out of scope (deliberately, YAGNI):
 
 A new `AuthStack` (separate from `ApiStack`) contains:
 
-- `UserPool`: sign-in alias is email only, self sign-up enabled, `autoVerify: { email: true }`, password minimum length 8 with Cognito's default character requirements, MFA off, account recovery disabled (no reset flow yet).
+- `UserPool`: sign-in alias is email only and case-insensitive (`signInCaseSensitive: false`, so `A@x.com` and `a@x.com` are one account), self sign-up enabled, `autoVerify: { email: true }`, password minimum length 8 with Cognito's default character requirements, MFA off, account recovery disabled (no reset flow yet).
 - `UserPoolClient`: public client with no secret (`generateSecret: false`), only `userSrp` auth flow enabled, token revocation enabled, short access and ID token lifetimes (1 hour or less).
 - Stack outputs: `UserPoolId` and `UserPoolClientId`.
 
@@ -45,7 +45,7 @@ A new `AuthStack` (separate from `ApiStack`) contains:
 
 ### Configuration
 
-`src/auth/config.ts` reads `VITE_USER_POOL_ID`, `VITE_USER_POOL_CLIENT_ID`, and `VITE_AWS_REGION` from `import.meta.env`, throws a clear error naming any missing variable, and configures Amplify. A `.env.example` documents the variables. Real values come from the deployed stack outputs and are never committed.
+`src/auth/config.ts` reads `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` from `import.meta.env` (Amplify derives the region from the pool id, so no region variable is needed), throws a clear error naming any missing variable, and configures Amplify. A `.env.example` documents the variables. Real values come from the deployed stack outputs and are never committed.
 
 ### Auth wrapper
 
