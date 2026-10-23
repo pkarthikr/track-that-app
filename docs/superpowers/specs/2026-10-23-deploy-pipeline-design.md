@@ -47,9 +47,9 @@ A new `GithubOidcStack` (separate from `ApiStack` and `AuthStack`) contains:
 
 The stack is not deployed by the pipeline. A person deploys it once with admin credentials, after a one-time `cdk bootstrap` of the account.
 
-### Assumption
+### Existing provider
 
-The account has no existing IAM OIDC provider for `token.actions.githubusercontent.com` (an account can hold only one per URL). If one exists, the first deploy fails with an "already exists" error; the remedy is to change the stack to import it with `OpenIdConnectProvider.fromOpenIdConnectProviderArn`. This is not built now.
+Confirmed by the owner: the account has no IAM OIDC provider for `token.actions.githubusercontent.com` (an account can hold only one per URL), so the stack creates it. If one is ever added outside this stack, the deploy fails with an "already exists" error; the remedy would be to import it with `OpenIdConnectProvider.fromOpenIdConnectProviderArn`. This is not built now.
 
 ## Workflow (`.github/workflows/deploy.yml`)
 
