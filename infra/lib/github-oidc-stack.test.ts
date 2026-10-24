@@ -49,7 +49,7 @@ describe("GithubOidcStack", () => {
               StringEquals: {
                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                 "token.actions.githubusercontent.com:sub":
-                  "repo:pkarthikr/track-that-app:ref:refs/heads/main",
+                  "repo:pkarthikr@315321/track-that-app@1414825749:ref:refs/heads/main",
               },
             },
           },

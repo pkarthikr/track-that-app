@@ -38,7 +38,7 @@ Out of scope (deliberately, YAGNI):
 A new `GithubOidcStack` (separate from `ApiStack` and `AuthStack`) contains:
 
 - An IAM OIDC provider with URL `https://token.actions.githubusercontent.com` and client id `sts.amazonaws.com`.
-- A role named `TrackThatGithubDeploy`. Its trust policy allows `sts:AssumeRoleWithWebIdentity` from that provider only when `token.actions.githubusercontent.com:aud` equals `sts.amazonaws.com` and `token.actions.githubusercontent.com:sub` equals exactly `repo:pkarthikr/track-that-app:ref:refs/heads/main`. No wildcards in the `sub`.
+- A role named `TrackThatGithubDeploy`. Its trust policy allows `sts:AssumeRoleWithWebIdentity` from that provider only when `token.actions.githubusercontent.com:aud` equals `sts.amazonaws.com` and `token.actions.githubusercontent.com:sub` equals exactly `repo:pkarthikr@315321/track-that-app@1414825749:ref:refs/heads/main`. No wildcards in the `sub`. This is GitHub's immutable subject-claim form, with the numeric owner and repository ids (`315321`, `1414825749`) that this repository's OIDC settings emit; the name-only form `repo:pkarthikr/track-that-app:...` is rejected. Because the ids are part of the match, a deleted and recreated repository with the same name cannot assume the role. If the repository is transferred or recreated, the ids in `infra/lib/github-oidc-stack.ts` must be updated.
 - One inline permission: `sts:AssumeRole` on the CDK bootstrap roles in the same account (`arn:aws:iam::<account>:role/cdk-hnb659fds-*`). Nothing else.
 - Maximum session duration of 1 hour.
 - Stack output: `DeployRoleArn`.
