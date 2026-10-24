@@ -6,7 +6,7 @@ import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { WebStack } from "./web-stack";
+import { WebStack, resolveWebAssetPath } from "./web-stack";
 
 const fixture = mkdtempSync(join(tmpdir(), "web-"));
 writeFileSync(join(fixture, "index.html"), "<!doctype html><title>t</title>");
@@ -201,5 +201,14 @@ describe("WebStack", () => {
   it("outputs the site URL and bucket name", () => {
     template.hasOutput("WebUrl", {});
     template.hasOutput("BucketName", {});
+  });
+
+  it("explains how to build the web app when the default asset path is missing", () => {
+    const missing = join(fixture, "does-not-exist");
+    expect(() => resolveWebAssetPath(undefined, missing)).toThrow(
+      "pnpm --filter @trackthat/web build",
+    );
+    expect(resolveWebAssetPath(missing, "unused")).toBe(missing);
+    expect(resolveWebAssetPath(undefined, fixture)).toBe(fixture);
   });
 });

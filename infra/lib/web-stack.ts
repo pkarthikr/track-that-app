@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
@@ -18,6 +20,21 @@ export interface WebStackProps extends StackProps {
   readonly webAssetPath?: string;
 }
 
+const defaultWebAssetPath = fileURLToPath(new URL("../../apps/web/dist", import.meta.url));
+
+export function resolveWebAssetPath(
+  webAssetPath: string | undefined,
+  defaultPath: string = defaultWebAssetPath,
+): string {
+  if (webAssetPath !== undefined) return webAssetPath;
+  if (!existsSync(join(defaultPath, "index.html"))) {
+    throw new Error(
+      `No web build found at ${defaultPath}. Build the web app first: pnpm --filter @trackthat/web build`,
+    );
+  }
+  return defaultPath;
+}
+
 export class WebStack extends Stack {
   readonly bucket: Bucket;
   readonly distribution: Distribution;
@@ -31,7 +48,10 @@ export class WebStack extends Stack {
       enforceSSL: true,
     });
 
-    // Assumes the app has no inline styles or scripts.
+    // Assumes the app has no inline styles or scripts. connect-src uses this
+    // stack's region, while the app takes the Cognito region from the user pool
+    // id, so the CSP only matches if TrackThatAuth is deployed to the same
+    // region as this stack.
     const contentSecurityPolicy = [
       "default-src 'self'",
       "script-src 'self'",
@@ -77,11 +97,7 @@ export class WebStack extends Stack {
     });
 
     new BucketDeployment(this, "DeployWeb", {
-      sources: [
-        Source.asset(
-          props?.webAssetPath ?? fileURLToPath(new URL("../../apps/web/dist", import.meta.url)),
-        ),
-      ],
+      sources: [Source.asset(resolveWebAssetPath(props?.webAssetPath))],
       destinationBucket: this.bucket,
       distribution: this.distribution,
       distributionPaths: ["/*"],
