@@ -15,7 +15,7 @@ track-that-app/
 │   └── core/             # @trackthat/core: domain logic placeholder
 ├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, a WebStack (TrackThatWeb, static site hosting), and a GithubOidcStack (deploy role)
 ├── .github/workflows/
-│   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, cdk synth
+│   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, web build, cdk synth
 │   └── deploy.yml        # manual deploy via GitHub OIDC
 ├── tsconfig.base.json    # Shared strict TypeScript settings
 ├── eslint.config.mjs     # ESLint flat config (applies to every package)
@@ -28,7 +28,7 @@ Internal packages are consumed as TypeScript source (`exports` points at `src/in
 
 - **Node.js 26.** The version is pinned in `.nvmrc` and `engines`. Run `nvm use` (or `fnm use`) in the repo root.
 - **pnpm 12.11.2.** Pinned via the `packageManager` field. Enable it with `corepack enable`, or install it with `npm i -g pnpm@12.11.2`.
-- **AWS credentials are not needed to build, test, or `cdk synth`.** `cdk synth` works offline. They are needed only to deploy; see [Deploying](#deploying).
+- **AWS credentials are not needed to build, test, or `cdk synth`.** `cdk synth` works offline once the web app is built (see [CDK and the web build](#cdk-and-the-web-build)). They are needed only to deploy; see [Deploying](#deploying).
 
 ## Getting Started
 
@@ -54,12 +54,18 @@ Package-level scripts can be run with a filter, for example:
 ```bash
 pnpm --filter @trackthat/web dev                    # start the Vite dev server
 pnpm --filter @trackthat/api build                  # bundle the Lambda to services/api/dist/handler.js
-pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation (no AWS calls)
+pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation (no AWS calls; build the web app first)
 ```
+
+### CDK and the web build
+
+The CDK app includes the web hosting stack, which reads the built web app from `apps/web/dist`. On a fresh clone, run `pnpm --filter @trackthat/web build` before any `cdk` command (`synth`, `diff`, `deploy`, and `bootstrap`, since each loads the app). Without it the command fails with a "Build the web app first" error.
+
+Only the Deploy workflow should publish `TrackThatWeb`. A local build bakes in whatever `apps/web/.env.local` contains, so a local `cdk deploy TrackThatWeb` would publish a site with those ids.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, and `cdk synth`. It does not deploy; see [Deploying](#deploying).
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, builds the web app, and runs `cdk synth`. It does not deploy; see [Deploying](#deploying).
 
 ## Deploying
 
@@ -68,8 +74,8 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 One-time setup, done by a person with admin AWS credentials (the workflow does not do this):
 
 1. Check that the account has no existing GitHub OIDC provider: `aws iam list-open-id-connect-providers`. `GithubOidcStack` creates one, and an account can hold only one for GitHub's URL, so an existing provider makes the first deploy of `GithubOidcStack` fail.
-2. Bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
-3. Deploy the role stack by hand: `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
+2. Build the web app first (`pnpm --filter @trackthat/web build`; see [CDK and the web build](#cdk-and-the-web-build)), since the `cdk` commands below load it. Then bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
+3. Deploy the role stack by hand (the web app must be built, as in step 2): `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
 4. Set four repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
    - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` value.
    - `AWS_REGION`: the region you bootstrapped.
@@ -83,7 +89,7 @@ One-time setup, done by a person with admin AWS credentials (the workflow does n
    gh variable set VITE_USER_POOL_CLIENT_ID --body "<UserPoolClientId>"
    ```
 
-   On a brand-new account the `TrackThatAuth` outputs do not exist yet. Deploy `TrackThatApi` and `TrackThatAuth` first with admin credentials (`pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth`), then set the two `VITE_` variables, then run the workflow. The workflow fails early if either is missing. If the user pool is ever recreated, update both variables to the new values.
+   On a brand-new account the `TrackThatAuth` outputs do not exist yet. Deploy `TrackThatApi` and `TrackThatAuth` first with admin credentials, after building the web app (`pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth`), then set the two `VITE_` variables, then run the workflow. The workflow fails early if either is missing. If the user pool is ever recreated, update both variables to the new values.
 
 Use the same AWS account and region throughout: the bootstrap, the `GithubOidcStack` deploy, the `AWS_REGION` variable, and every later workflow run. Deploying to a region that was not bootstrapped fails.
 
