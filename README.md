@@ -13,7 +13,7 @@ track-that-app/
 ├── packages/
 │   ├── shared/           # @trackthat/shared: cross-package constants (APP_NAME)
 │   └── core/             # @trackthat/core: domain logic placeholder
-├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, and a GithubOidcStack (deploy role)
+├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, a WebStack (TrackThatWeb, static site hosting), and a GithubOidcStack (deploy role)
 ├── .github/workflows/
 │   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, cdk synth
 │   └── deploy.yml        # manual deploy via GitHub OIDC
@@ -63,22 +63,35 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 
 ## Deploying
 
-`.github/workflows/deploy.yml` deploys the CDK stacks from GitHub Actions, authenticating to AWS through GitHub's OIDC provider (no stored AWS keys). There is a single environment, with no dev/prod separation yet. Only `TrackThatApi` and `TrackThatAuth` are deployed. The web app is not deployed, since there is no hosting yet.
+`.github/workflows/deploy.yml` deploys the CDK stacks from GitHub Actions, authenticating to AWS through GitHub's OIDC provider (no stored AWS keys). There is a single environment, with no dev/prod separation yet. The workflow deploys `TrackThatApi` and `TrackThatAuth`, and it also builds the web app and publishes it through `TrackThatWeb` (an S3 bucket behind CloudFront).
 
 One-time setup, done by a person with admin AWS credentials (the workflow does not do this):
 
 1. Check that the account has no existing GitHub OIDC provider: `aws iam list-open-id-connect-providers`. `GithubOidcStack` creates one, and an account can hold only one for GitHub's URL, so an existing provider makes the first deploy of `GithubOidcStack` fail.
 2. Bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
 3. Deploy the role stack by hand: `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
-4. Set two repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
+4. Set four repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
    - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` value.
    - `AWS_REGION`: the region you bootstrapped.
+   - `VITE_USER_POOL_ID`: the `UserPoolId` output of `TrackThatAuth`.
+   - `VITE_USER_POOL_CLIENT_ID`: the `UserPoolClientId` output of `TrackThatAuth`.
+
+   ```bash
+   gh variable set AWS_DEPLOY_ROLE_ARN --body "<DeployRoleArn>"
+   gh variable set AWS_REGION --body "<REGION>"
+   gh variable set VITE_USER_POOL_ID --body "<UserPoolId>"
+   gh variable set VITE_USER_POOL_CLIENT_ID --body "<UserPoolClientId>"
+   ```
+
+   On a brand-new account the `TrackThatAuth` outputs do not exist yet. Deploy `TrackThatApi` and `TrackThatAuth` first with admin credentials (`pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth`), then set the two `VITE_` variables, then run the workflow. The workflow fails early if either is missing. If the user pool is ever recreated, update both variables to the new values.
 
 Use the same AWS account and region throughout: the bootstrap, the `GithubOidcStack` deploy, the `AWS_REGION` variable, and every later workflow run. Deploying to a region that was not bootstrapped fails.
 
 Security note: the deploy role is effectively administrative, because it can assume the CDK bootstrap roles, and those deploy CloudFormation with an administrator-level execution role. Anyone who can push to `main` or merge a pull request controls what that role does. Turn on branch protection for `main` (pull request and review required, no direct pushes, no force-pushes) before the first deploy. The trust policy only accepts workflows running on `main`, so that protection is what guards the account.
 
 To deploy, open the Actions tab, choose Deploy, and Run workflow on `main`, or run `gh workflow run deploy.yml --ref main`. The workflow runs typecheck, lint, and test before it touches AWS. It refuses to run from any branch other than `main`, and the deploy role's trust policy only accepts `main` as well.
+
+Site URL: after a deploy, the `WebUrl` output of `TrackThatWeb` appears in the workflow log and is the address of the site. The URL is unlisted but public. Cognito self sign-up is open, so anyone who finds the URL can register, and Cognito's default email sender allows 50 emails a day.
 
 ## Authentication
 
@@ -106,7 +119,6 @@ Manual smoke test: register, receive the code by email, confirm, sign in, sign o
 - Run the first deploy (see [Deploying](#deploying)).
 - Add dev and prod stages.
 - Add SES email for the user pool.
-- Add web hosting.
 - Add resend confirmation code.
 - Add password reset.
 - Protect API routes with the Cognito user pool.
