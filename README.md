@@ -1,6 +1,6 @@
 # TrackThat
 
-TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The only feature is email and password sign-up and sign-in, backed by a Cognito user pool defined in CDK. Nothing is deployed yet, and there are no schemas.
+TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The only feature is email and password sign-up and sign-in, backed by a Cognito user pool defined in CDK. The stacks are deployed from GitHub Actions (see [Deploying](#deploying)), and there are no schemas.
 
 ## Folder Layout
 
@@ -13,9 +13,9 @@ track-that-app/
 ├── packages/
 │   ├── shared/           # @trackthat/shared: cross-package constants (APP_NAME)
 │   └── core/             # @trackthat/core: domain logic placeholder
-├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, and a GithubOidcStack (deploy role)
+├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, a WebStack (TrackThatWeb, static site hosting), and a GithubOidcStack (deploy role)
 ├── .github/workflows/
-│   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, cdk synth
+│   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, web build, cdk synth
 │   └── deploy.yml        # manual deploy via GitHub OIDC
 ├── tsconfig.base.json    # Shared strict TypeScript settings
 ├── eslint.config.mjs     # ESLint flat config (applies to every package)
@@ -28,7 +28,7 @@ Internal packages are consumed as TypeScript source (`exports` points at `src/in
 
 - **Node.js 26.** The version is pinned in `.nvmrc` and `engines`. Run `nvm use` (or `fnm use`) in the repo root.
 - **pnpm 12.11.2.** Pinned via the `packageManager` field. Enable it with `corepack enable`, or install it with `npm i -g pnpm@12.11.2`.
-- **AWS credentials are not needed to build, test, or `cdk synth`.** `cdk synth` works offline. They are needed only to deploy; see [Deploying](#deploying).
+- **AWS credentials are not needed to build, test, or `cdk synth`.** `cdk synth` works offline once the web app is built (see [CDK and the web build](#cdk-and-the-web-build)). They are needed only to deploy; see [Deploying](#deploying).
 
 ## Getting Started
 
@@ -54,25 +54,42 @@ Package-level scripts can be run with a filter, for example:
 ```bash
 pnpm --filter @trackthat/web dev                    # start the Vite dev server
 pnpm --filter @trackthat/api build                  # bundle the Lambda to services/api/dist/handler.js
-pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation (no AWS calls)
+pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation (no AWS calls; build the web app first)
 ```
+
+### CDK and the web build
+
+The CDK app includes the web hosting stack, which reads the built web app from `apps/web/dist`. On a fresh clone, run `pnpm --filter @trackthat/web build` before any `cdk` command (`synth`, `diff`, `deploy`, and `bootstrap`, since each loads the app). Without it the command fails with a "Build the web app first" error.
+
+Only the Deploy workflow should publish `TrackThatWeb`. A local build bakes in whatever `apps/web/.env.local` contains, so a local `cdk deploy TrackThatWeb` would publish a site with those ids.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, and `cdk synth`. It does not deploy; see [Deploying](#deploying).
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs `typecheck`, `lint`, `test`, builds the web app, and runs `cdk synth`. It does not deploy; see [Deploying](#deploying).
 
 ## Deploying
 
-`.github/workflows/deploy.yml` deploys the CDK stacks from GitHub Actions, authenticating to AWS through GitHub's OIDC provider (no stored AWS keys). There is a single environment, with no dev/prod separation yet. Only `TrackThatApi` and `TrackThatAuth` are deployed. The web app is not deployed, since there is no hosting yet.
+`.github/workflows/deploy.yml` deploys the CDK stacks from GitHub Actions, authenticating to AWS through GitHub's OIDC provider (no stored AWS keys). There is a single environment, with no dev/prod separation yet. The workflow deploys `TrackThatApi` and `TrackThatAuth`, and it also builds the web app and publishes it through `TrackThatWeb` (an S3 bucket behind CloudFront).
 
 One-time setup, done by a person with admin AWS credentials (the workflow does not do this):
 
 1. Check that the account has no existing GitHub OIDC provider: `aws iam list-open-id-connect-providers`. `GithubOidcStack` creates one, and an account can hold only one for GitHub's URL, so an existing provider makes the first deploy of `GithubOidcStack` fail.
-2. Bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
-3. Deploy the role stack by hand: `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
-4. Set two repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
+2. Build the web app first (`pnpm --filter @trackthat/web build`; see [CDK and the web build](#cdk-and-the-web-build)), since the `cdk` commands below load it. Then bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
+3. Deploy the role stack by hand (the web app must be built, as in step 2): `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
+4. Set four repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
    - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` value.
    - `AWS_REGION`: the region you bootstrapped.
+   - `VITE_USER_POOL_ID`: the `UserPoolId` output of `TrackThatAuth`.
+   - `VITE_USER_POOL_CLIENT_ID`: the `UserPoolClientId` output of `TrackThatAuth`.
+
+   ```bash
+   gh variable set AWS_DEPLOY_ROLE_ARN --body "<DeployRoleArn>"
+   gh variable set AWS_REGION --body "<REGION>"
+   gh variable set VITE_USER_POOL_ID --body "<UserPoolId>"
+   gh variable set VITE_USER_POOL_CLIENT_ID --body "<UserPoolClientId>"
+   ```
+
+   On a brand-new account the `TrackThatAuth` outputs do not exist yet. Deploy `TrackThatApi` and `TrackThatAuth` first with admin credentials, after building the web app (`pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth`), then set the two `VITE_` variables, then run the workflow. The workflow fails early if either is missing. If the user pool is ever recreated, update both variables to the new values.
 
 Use the same AWS account and region throughout: the bootstrap, the `GithubOidcStack` deploy, the `AWS_REGION` variable, and every later workflow run. Deploying to a region that was not bootstrapped fails.
 
@@ -80,11 +97,13 @@ Security note: the deploy role is effectively administrative, because it can ass
 
 To deploy, open the Actions tab, choose Deploy, and Run workflow on `main`, or run `gh workflow run deploy.yml --ref main`. The workflow runs typecheck, lint, and test before it touches AWS. It refuses to run from any branch other than `main`, and the deploy role's trust policy only accepts `main` as well.
 
+Site URL: after a deploy, the `WebUrl` output of `TrackThatWeb` appears in the workflow log and is the address of the site. The URL is unlisted but public. Cognito self sign-up is open, so anyone who finds the URL can register, and Cognito's default email sender allows 50 emails a day.
+
 ## Authentication
 
 Sign-up and sign-in use an Amazon Cognito user pool, defined in `infra/lib/auth-stack.ts` (`AuthStack`, instantiated as `TrackThatAuth` in `infra/bin/app.ts`). New users register with an email and password, then must confirm the address with a 6-digit code sent by email. Resend-code does not exist yet, so an expired code currently blocks that email address from being confirmed through the UI.
 
-See [Deploying](#deploying) for the first deploy. After it, the web app is configured like this:
+The user pool is created by the Deploy workflow (see [Deploying](#deploying)). To run the web app locally, configure it like this:
 
 1. Copy `apps/web/.env.example` to `apps/web/.env.local`.
 2. Set `VITE_USER_POOL_ID` to the `UserPoolId` stack output and `VITE_USER_POOL_CLIENT_ID` to the `UserPoolClientId` stack output.
@@ -103,10 +122,8 @@ Manual smoke test: register, receive the code by email, confirm, sign in, sign o
 
 - Add the first real feature to `packages/core` with tests.
 - Add a database schema and API routes in `services/api`.
-- Run the first deploy (see [Deploying](#deploying)).
 - Add dev and prod stages.
 - Add SES email for the user pool.
-- Add web hosting.
 - Add resend confirmation code.
 - Add password reset.
 - Protect API routes with the Cognito user pool.
