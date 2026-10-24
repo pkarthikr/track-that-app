@@ -1,6 +1,6 @@
 # TrackThat
 
-TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The only feature is email and password sign-up and sign-in, backed by a Cognito user pool defined in CDK. Nothing is deployed yet, and there are no schemas.
+TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The only feature is email and password sign-up and sign-in, backed by a Cognito user pool defined in CDK. The stacks are deployed from GitHub Actions (see [Deploying](#deploying)), and there are no schemas.
 
 ## Folder Layout
 
@@ -97,7 +97,7 @@ Site URL: after a deploy, the `WebUrl` output of `TrackThatWeb` appears in the w
 
 Sign-up and sign-in use an Amazon Cognito user pool, defined in `infra/lib/auth-stack.ts` (`AuthStack`, instantiated as `TrackThatAuth` in `infra/bin/app.ts`). New users register with an email and password, then must confirm the address with a 6-digit code sent by email. Resend-code does not exist yet, so an expired code currently blocks that email address from being confirmed through the UI.
 
-See [Deploying](#deploying) for the first deploy. After it, the web app is configured like this:
+The user pool is created by the Deploy workflow (see [Deploying](#deploying)). To run the web app locally, configure it like this:
 
 1. Copy `apps/web/.env.example` to `apps/web/.env.local`.
 2. Set `VITE_USER_POOL_ID` to the `UserPoolId` stack output and `VITE_USER_POOL_CLIENT_ID` to the `UserPoolClientId` stack output.
@@ -116,7 +116,6 @@ Manual smoke test: register, receive the code by email, confirm, sign in, sign o
 
 - Add the first real feature to `packages/core` with tests.
 - Add a database schema and API routes in `services/api`.
-- Run the first deploy (see [Deploying](#deploying)).
 - Add dev and prod stages.
 - Add SES email for the user pool.
 - Add resend confirmation code.
