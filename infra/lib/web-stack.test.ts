@@ -20,6 +20,7 @@ afterAll(() => {
 type Statement = {
   Effect?: string;
   Principal?: unknown;
+  Action?: unknown;
   Condition?: Record<string, Record<string, unknown>>;
 };
 
@@ -63,6 +64,27 @@ describe("WebStack", () => {
         (s) => s.Effect === "Deny" && s.Condition?.Bool?.["aws:SecureTransport"] === "false",
       ),
     ).toBe(true);
+  });
+
+  it("limits CloudFront read access to this distribution only", () => {
+    const distributionIds = Object.keys(template.findResources("AWS::CloudFront::Distribution"));
+    expect(distributionIds).toHaveLength(1);
+    const distributionId = distributionIds[0] as string;
+    const statements: Statement[] = Object.values(
+      template.findResources("AWS::S3::BucketPolicy"),
+    ).flatMap((policy) => policy.Properties.PolicyDocument.Statement as Statement[]);
+    const cloudfrontAllows = statements.filter(
+      (s) =>
+        s.Effect === "Allow" &&
+        (s.Principal as { Service?: string } | undefined)?.Service === "cloudfront.amazonaws.com",
+    );
+    expect(cloudfrontAllows.length).toBeGreaterThan(0);
+    for (const statement of cloudfrontAllows) {
+      expect(statement.Action).toBe("s3:GetObject");
+      const sourceArn = statement.Condition?.StringEquals?.["AWS:SourceArn"];
+      expect(sourceArn).toBeDefined();
+      expect(JSON.stringify(sourceArn)).toContain(`{"Ref":"${distributionId}"}`);
+    }
   });
 
   it("serves the bucket through origin access control", () => {
