@@ -2,7 +2,12 @@ import { Aws, CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
 import { CfnOIDCProvider, PolicyStatement, Role, WebIdentityPrincipal } from "aws-cdk-lib/aws-iam";
 import type { Construct } from "constructs";
 
-const GITHUB_REPO = "pkarthikr/track-that-app";
+// The repo uses GitHub's immutable OIDC subject claim: owner and repo are suffixed with their
+// numeric ids, so a deleted-and-recreated repo with the same name cannot assume the role.
+const GITHUB_OWNER = "pkarthikr";
+const GITHUB_OWNER_ID = 315321;
+const GITHUB_REPO = "track-that-app";
+const GITHUB_REPO_ID = 1414825749;
 const DEPLOY_BRANCH = "main";
 
 const OIDC_HOST = "token.actions.githubusercontent.com";
@@ -23,7 +28,9 @@ export class GithubOidcStack extends Stack {
       assumedBy: new WebIdentityPrincipal(provider.attrArn, {
         StringEquals: {
           [`${OIDC_HOST}:aud`]: "sts.amazonaws.com",
-          [`${OIDC_HOST}:sub`]: `repo:${GITHUB_REPO}:ref:refs/heads/${DEPLOY_BRANCH}`,
+          [`${OIDC_HOST}:sub`]:
+            `repo:${GITHUB_OWNER}@${GITHUB_OWNER_ID}/${GITHUB_REPO}@${GITHUB_REPO_ID}` +
+            `:ref:refs/heads/${DEPLOY_BRANCH}`,
         },
       }),
       maxSessionDuration: Duration.hours(1),
