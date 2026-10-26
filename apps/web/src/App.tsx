@@ -84,10 +84,7 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
           )
         }
       />
-      <Route
-        path="*"
-        element={<Navigate to={session.status === "in" ? "/home" : "/sign-in"} replace />}
-      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -137,8 +137,15 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Create your account" })).toBeTruthy();
   });
 
-  it("sends unknown paths signed out to sign in", async () => {
+  it("sends unknown paths signed out to the landing page", async () => {
     renderApp(fakeAuth(), "/nope");
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Build habits you can see." }),
+    ).toBeTruthy();
+  });
+
+  it("sends unknown paths signed in to the welcome screen", async () => {
+    renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/nope");
+    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
   });
 });
