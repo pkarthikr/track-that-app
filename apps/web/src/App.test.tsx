@@ -32,6 +32,11 @@ describe("App", () => {
     expect(screen.getByText("a@x.com")).toBeTruthy();
   });
 
+  it("shows the features page to a signed-out visitor", async () => {
+    renderApp(fakeAuth(), "/features");
+    expect(await screen.findByRole("heading", { level: 1, name: "Features" })).toBeTruthy();
+  });
+
   it("shows the landing page when there is no session", async () => {
     renderApp(fakeAuth());
     expect(
