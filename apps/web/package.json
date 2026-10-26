@@ -11,10 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource/dm-sans": "^5.3.0",
     "@trackthat/shared": "workspace:*",
     "aws-amplify": "^6.22.2",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "react-router": "^8.5.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",

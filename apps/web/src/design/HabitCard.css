@@ -1,0 +1,33 @@
+.habit-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.habit-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.habit-card__ring {
+  box-sizing: border-box;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--habit);
+  border-radius: var(--radius-pill);
+}
+
+.habit-card__name {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--color-ink);
+}

@@ -1,0 +1,14 @@
+.color-swatches {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.color-swatches__dot {
+  display: block;
+  flex: 0 1 44px;
+  min-width: 0;
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  background: var(--habit);
+}

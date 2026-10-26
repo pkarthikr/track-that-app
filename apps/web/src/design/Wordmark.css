@@ -1,0 +1,36 @@
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+
+.wordmark--sm {
+  font-size: 18px;
+  gap: 8px;
+}
+
+.wordmark--lg {
+  font-size: 36px;
+  gap: 16px;
+}
+
+.wordmark--stacked {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.wordmark--stacked.wordmark--sm {
+  gap: 12px;
+}
+
+.wordmark--stacked.wordmark--lg {
+  gap: 24px;
+}
+
+.wordmark__text {
+  white-space: nowrap;
+}

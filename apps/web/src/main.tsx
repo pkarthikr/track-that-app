@@ -1,5 +1,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
+
+import "@fontsource-variable/bricolage-grotesque/wght.css";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
+
+import "./design/tokens.css";
+import "./design/base.css";
 
 import { App } from "./App";
 import { configureAuth } from "./auth/config";
@@ -10,7 +19,9 @@ try {
   configureAuth();
   root.render(
     <StrictMode>
-      <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </StrictMode>,
   );
 } catch (error) {

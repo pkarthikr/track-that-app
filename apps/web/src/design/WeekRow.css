@@ -1,0 +1,31 @@
+.week-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.week-row__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.week-row__cell--done {
+  background: var(--habit);
+  color: #ffffff;
+}
+
+.week-row__cell--open {
+  background: var(--color-empty);
+  color: #4a5750;
+}
+
+.week-row__cell--today {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}

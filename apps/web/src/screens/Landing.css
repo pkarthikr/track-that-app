@@ -1,0 +1,21 @@
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 24px;
+}
+
+.landing__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.landing__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

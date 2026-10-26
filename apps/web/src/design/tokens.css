@@ -1,0 +1,71 @@
+:root {
+  --color-ground: #f5f6f1;
+  --color-surface: #ffffff;
+  --color-ink: #17231d;
+  --color-muted: #5e6b63;
+  --color-border: #e1e6de;
+  --color-empty: #e3e8e1;
+  --color-ghost-hover: #eef0ea;
+  --color-ghost-border: #b9c4bc;
+  --color-brand: #14804f;
+
+  --habit-green-1: #ace0ba;
+  --habit-green-2: #75c38d;
+  --habit-green-3: #3da565;
+  --habit-green-4: #14804f;
+  --habit-teal-1: #95e1e1;
+  --habit-teal-2: #44c5c6;
+  --habit-teal-3: #00a3a4;
+  --habit-teal-4: #007f81;
+  --habit-blue-1: #b3d4ff;
+  --habit-blue-2: #80b4f5;
+  --habit-blue-3: #5493e2;
+  --habit-blue-4: #3273c2;
+  --habit-violet-1: #d1c9ff;
+  --habit-violet-2: #b3a5f2;
+  --habit-violet-3: #9682df;
+  --habit-violet-4: #7963c0;
+  --habit-pink-1: #f8bdd8;
+  --habit-pink-2: #e795bc;
+  --habit-pink-3: #d16fa0;
+  --habit-pink-4: #b25083;
+  --habit-coral-1: #ffbfb8;
+  --habit-coral-2: #f0968e;
+  --habit-coral-3: #db7069;
+  --habit-coral-4: #bb504b;
+  --habit-orange-1: #f8c5a2;
+  --habit-orange-2: #e89e6b;
+  --habit-orange-3: #d17a37;
+  --habit-orange-4: #b25a00;
+
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+}
+
+.habit-color--green {
+  --habit: var(--habit-green-4);
+}
+.habit-color--teal {
+  --habit: var(--habit-teal-4);
+}
+.habit-color--blue {
+  --habit: var(--habit-blue-4);
+}
+.habit-color--violet {
+  --habit: var(--habit-violet-4);
+}
+.habit-color--pink {
+  --habit: var(--habit-pink-4);
+}
+.habit-color--coral {
+  --habit: var(--habit-coral-4);
+}
+.habit-color--orange {
+  --habit: var(--habit-orange-4);
+}
