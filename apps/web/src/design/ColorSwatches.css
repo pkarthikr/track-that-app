@@ -6,9 +6,9 @@
 
 .color-swatches__dot {
   display: block;
-  flex: 1;
-  height: 44px;
-  max-width: 44px;
+  flex: 0 1 44px;
+  min-width: 0;
+  aspect-ratio: 1;
   border-radius: var(--radius-pill);
   background: var(--habit);
 }
