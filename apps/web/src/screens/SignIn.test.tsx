@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthApi } from "../auth/auth";
 import { AuthFailure } from "../auth/auth";
@@ -20,11 +21,16 @@ function setup(auth: AuthApi) {
   const handlers = {
     onSignedIn: vi.fn(),
     onNeedsConfirmation: vi.fn(),
-    onShowRegister: vi.fn(),
   };
-  render(<SignIn auth={auth} {...handlers} />);
+  render(
+    <MemoryRouter>
+      <SignIn auth={auth} {...handlers} />
+    </MemoryRouter>,
+  );
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
-  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
+  fireEvent.change(screen.getByLabelText("Password", { selector: "input" }), {
+    target: { value: "Passw0rd!" },
+  });
   return handlers;
 }
 
@@ -81,9 +87,56 @@ describe("SignIn", () => {
     await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
   });
 
-  it("links to register", () => {
-    const { onShowRegister } = setup(fakeAuth());
-    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
-    expect(onShowRegister).toHaveBeenCalledTimes(1);
+  it("links to register from below the card and the header", () => {
+    setup(fakeAuth());
+    expect(screen.getByRole("link", { name: "Create an account" }).getAttribute("href")).toBe(
+      "/register",
+    );
+    expect(screen.getByRole("link", { name: "Create account" }).getAttribute("href")).toBe(
+      "/register",
+    );
+  });
+
+  it("sets the page title", () => {
+    setup(fakeAuth());
+    expect(document.title).toBe("Track That: Sign in");
+  });
+
+  it("disables submit until email is plausible and password is non-empty", () => {
+    render(
+      <MemoryRouter>
+        <SignIn auth={fakeAuth()} onSignedIn={vi.fn()} onNeedsConfirmation={vi.fn()} />
+      </MemoryRouter>,
+    );
+    const email = screen.getByLabelText("Email");
+    const password = screen.getByLabelText("Password", { selector: "input" });
+    expect(submitButton().disabled).toBe(true);
+    fireEvent.change(email, { target: { value: "a@b.com" } });
+    expect(submitButton().disabled).toBe(true);
+    fireEvent.change(password, { target: { value: "x" } });
+    expect(submitButton().disabled).toBe(false);
+    fireEvent.change(email, { target: { value: "nope" } });
+    expect(submitButton().disabled).toBe(true);
+    fireEvent.change(email, { target: { value: " a@b.com " } });
+    expect(submitButton().disabled).toBe(false);
+  });
+
+  it("does not call signIn when submitted while invalid", () => {
+    const auth = fakeAuth();
+    render(
+      <MemoryRouter>
+        <SignIn auth={auth} onSignedIn={vi.fn()} onNeedsConfirmation={vi.fn()} />
+      </MemoryRouter>,
+    );
+    fireEvent.submit(submitButton().closest("form")!);
+    expect(auth.signIn).not.toHaveBeenCalled();
+  });
+
+  it("toggles password visibility", () => {
+    setup(fakeAuth());
+    const password = screen.getByLabelText("Password", { selector: "input" });
+    expect(password.getAttribute("type")).toBe("password");
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password.getAttribute("type")).toBe("text");
   });
 });

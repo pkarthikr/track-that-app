@@ -49,16 +49,16 @@ describe("App", () => {
     renderApp(auth, "/sign-in");
     await screen.findByRole("heading", { name: "Sign in" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
+    fireEvent.click(screen.getByRole("link", { name: "Create an account" }));
     await screen.findByRole("heading", { name: "Create your account" });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@x.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-    await screen.findByRole("heading", { name: "Confirm your email" });
+    await screen.findByRole("heading", { name: "Check your email" });
     expect(auth.signUp).toHaveBeenCalledWith("a@x.com", "Passw0rd!");
     fireEvent.change(screen.getByLabelText("Confirmation code"), { target: { value: "123456" } });
-    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verify and continue" }));
 
     await screen.findByRole("heading", { name: "Sign in" });
     expect(auth.confirmSignUp).toHaveBeenCalledWith("a@x.com", "123456");
@@ -84,8 +84,8 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(await screen.findByRole("heading", { name: "Confirm your email" })).toBeTruthy();
-    expect(screen.getByText("We sent a 6-digit code to a@x.com.")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Check your email" })).toBeTruthy();
+    expect(screen.getByText("a@x.com").tagName).toBe("STRONG");
   });
 
   it("shows nothing but a loading state before the session check resolves", async () => {

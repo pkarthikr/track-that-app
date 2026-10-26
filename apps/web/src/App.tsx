@@ -66,7 +66,6 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
                 navigate("/home", { replace: true });
               }}
               onNeedsConfirmation={(email) => navigate("/confirm", { state: { email } })}
-              onShowRegister={() => navigate("/register")}
             />
           )
         }
@@ -80,7 +79,6 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
             <Register
               auth={auth}
               onRegistered={(email) => navigate("/confirm", { state: { email } })}
-              onShowSignIn={() => navigate("/sign-in")}
             />
           )
         }

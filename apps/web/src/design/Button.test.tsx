@@ -38,4 +38,17 @@ describe("Button", () => {
     fireEvent.click(screen.getByRole("button"));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it("does not fire onClick when disabled", () => {
+    const onClick = vi.fn();
+    renderInRouter(
+      <Button disabled onClick={onClick}>
+        Go
+      </Button>,
+    );
+    const el = screen.getByRole("button") as HTMLButtonElement;
+    expect(el.disabled).toBe(true);
+    fireEvent.click(el);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

@@ -24,6 +24,15 @@
   filter: brightness(0.92);
 }
 
+.button:disabled,
+.button:disabled:hover {
+  background: var(--color-empty);
+  color: var(--color-muted);
+  border: none;
+  cursor: not-allowed;
+  filter: none;
+}
+
 .button--ghost {
   background: var(--color-surface);
   color: var(--color-ink);

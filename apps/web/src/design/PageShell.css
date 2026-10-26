@@ -44,3 +44,20 @@
 .page-shell__sign-in:hover {
   text-decoration: underline;
 }
+
+.page-shell__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  align-self: flex-start;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-brand);
+  text-decoration: none;
+}
+
+.page-shell__back:hover {
+  text-decoration: underline;
+}
