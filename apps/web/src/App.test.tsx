@@ -28,7 +28,8 @@ describe("App", () => {
   it("restores an existing session", async () => {
     const auth = fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") });
     renderApp(auth);
-    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
     expect(screen.getByText("a@x.com")).toBeTruthy();
   });
 
@@ -66,7 +67,8 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
-    await screen.findByRole("heading", { name: "Welcome" });
+    await screen.findByRole("heading", { name: "Home" });
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
     expect(screen.getByText("a@x.com")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -117,7 +119,7 @@ describe("App", () => {
 
   it("sends / signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
-    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
   });
 
   it("shows landing at / signed out and welcome at / signed in", async () => {
@@ -127,7 +129,7 @@ describe("App", () => {
     ).toBeTruthy();
     out.unmount();
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
-    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
   });
 
   it("reaches the sign-in form from the landing page", async () => {
@@ -151,7 +153,7 @@ describe("App", () => {
 
   it("sends unknown paths signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/nope");
-    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
   });
 
   describe("signed in", () => {
@@ -159,12 +161,12 @@ describe("App", () => {
 
     it("keeps a signed-in user off /sign-in", async () => {
       renderApp(signedIn(), "/sign-in");
-      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+      expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
     });
 
     it("keeps a signed-in user off /register", async () => {
       renderApp(signedIn(), "/register");
-      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+      expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
     });
 
     it("keeps a signed-in user off /confirm", async () => {
@@ -173,7 +175,7 @@ describe("App", () => {
           <App auth={signedIn()} />
         </MemoryRouter>,
       );
-      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+      expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
     });
   });
 
@@ -192,7 +194,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@x.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("heading", { name: "Welcome" });
+    await screen.findByRole("heading", { name: "Home" });
     fireEvent.click(screen.getByRole("button", { name: "probe-back" }));
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull());
   });

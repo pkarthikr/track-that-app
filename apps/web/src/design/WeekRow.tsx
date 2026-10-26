@@ -1,7 +1,8 @@
 import type { HabitColor } from "./palette";
 import "./WeekRow.css";
 
-export type DayState = "done" | "open";
+/** "rest" is a day the habit is not scheduled. */
+export type DayState = "done" | "open" | "rest";
 export type WeekDays = readonly [
   DayState,
   DayState,
@@ -21,6 +22,11 @@ const DAY_NAMES = [
   "Friday",
   "Saturday",
 ] as const;
+const STATE_LABELS: Record<DayState, string> = {
+  done: "done",
+  open: "not done",
+  rest: "rest day",
+};
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"] as const;
 
 /** Sunday to Saturday; the last cell is today. */
@@ -37,7 +43,7 @@ export function WeekRow({ days, color }: { days: WeekDays; color: HabitColor }) 
           <div
             key={DAY_NAMES[i]}
             role="img"
-            aria-label={`${name}: ${state === "done" ? "done" : "not done"}`}
+            aria-label={`${name}: ${STATE_LABELS[state]}`}
             className={classes.join(" ")}
           >
             {DAY_LETTERS[i]}
