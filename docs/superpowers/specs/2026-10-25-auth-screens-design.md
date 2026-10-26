@@ -22,7 +22,7 @@ Out of scope (deliberately, YAGNI):
 - `SignedIn`, the Home placeholder. It waits for the real Home screen.
 - "Forgot password?" and "Send a new code": the auth API has no reset or resend call.
 - The Terms and Privacy line on Sign up: those pages do not exist.
-- Any change to `AuthApi`, `useFormSubmit`, `messageFor`, routing, infra or the CSP.
+- Any change to `AuthApi`, `useFormSubmit`, `messageFor`, the routes, infra or the CSP.
 
 ## Constraints
 
@@ -34,7 +34,7 @@ Out of scope (deliberately, YAGNI):
 
 Each has a co-located `.css` file and a test.
 
-- `FormCard`: white surface, 1px `--color-border`, `--radius-xl`, 20px padding, 20px gap. Renders an `h1` (display font, 28/34) from a `title` prop and its children inside a `<form>` that takes `onSubmit` and `noValidate`.
+- `FormCard`: white surface, 1px `--color-border`, `--radius-xl`, 20px padding, 20px gap. Renders an `h1` (display font, 28/34) from an optional `title` prop (Confirm omits it) and its children inside a `<form>` that takes `onSubmit` and `noValidate`. An optional `error` prop renders a red `role="alert"` line after the children; Confirm instead shows its error through `TextField`.
 - `TextField`: wraps `<label>` text and a 52px input (`--radius-md`, `--color-ghost-border` border). Props: `label`, `hint` (muted 14/20 line), `error` (red line with `role="alert"`, red 2px input border, linked with `aria-describedby`), plus the native input attributes.
 - `PasswordField`: `TextField` with a 44px Show/Hide button inside the input's right edge. The button is `type="button"` with `aria-label` "Show password" or "Hide password" and toggles the input between `password` and `text`.
 - `Button`: a `disabled` button renders the disabled style (`--color-empty` background, `--color-muted` text, `not-allowed` cursor) and does not apply the hover filter.
@@ -60,7 +60,7 @@ Header action "Sign in" to `/sign-in`. `FormCard` titled "Create your account" w
 
 - Submit is disabled while the form is invalid or `pending`. Native `required` validation is replaced by this rule, hence `noValidate`.
 - Existing flow is untouched: `useFormSubmit` runs the request, failures map through `messageFor`, `user-not-confirmed` still routes to `/confirm`.
-- Links below cards are router links, not buttons. `onShowRegister` and `onShowSignIn` stay as props, wired to the same navigation as before, so `App` does not change.
+- Links below cards are router `Link`s, not buttons, so the `onShowRegister` and `onShowSignIn` props are removed from `SignIn` and `Register` and `App` stops passing them. The screens now render inside a router, as `Landing` already does.
 
 ## Testing
 
