@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthApi } from "../auth/auth";
 import { AuthFailure } from "../auth/auth";
@@ -16,12 +17,29 @@ function fakeAuth(overrides: Partial<AuthApi> = {}): AuthApi {
   };
 }
 
-function setup(auth: AuthApi) {
+function renderConfirm(auth: AuthApi) {
   const onConfirmed = vi.fn();
-  render(<Confirm auth={auth} email="a@b.com" onConfirmed={onConfirmed} />);
-  fireEvent.change(screen.getByLabelText("Confirmation code"), { target: { value: "123456" } });
-  fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
-  return { onConfirmed };
+  const view = render(
+    <MemoryRouter>
+      <Confirm auth={auth} email="a@b.com" onConfirmed={onConfirmed} />
+    </MemoryRouter>,
+  );
+  return { onConfirmed, container: view.container };
+}
+
+function codeInput() {
+  return screen.getByLabelText("Confirmation code") as HTMLInputElement;
+}
+
+function submitButton() {
+  return screen.getByRole("button", { name: "Verify and continue" }) as HTMLButtonElement;
+}
+
+function setup(auth: AuthApi) {
+  const result = renderConfirm(auth);
+  fireEvent.change(codeInput(), { target: { value: "123456" } });
+  fireEvent.click(submitButton());
+  return result;
 }
 
 describe("Confirm", () => {
@@ -30,16 +48,55 @@ describe("Confirm", () => {
     const { onConfirmed } = setup(auth);
     await waitFor(() => expect(onConfirmed).toHaveBeenCalledTimes(1));
     expect(auth.confirmSignUp).toHaveBeenCalledWith("a@b.com", "123456");
-    expect(screen.getByRole("heading", { name: "Confirm your email" })).toBeTruthy();
   });
 
-  it("shows the invalid-code message on failure", async () => {
+  it("shows the heading and the email in a strong element", () => {
+    renderConfirm(fakeAuth());
+    expect(screen.getByRole("heading", { name: "Check your email" })).toBeTruthy();
+    const strong = screen.getByText("a@b.com");
+    expect(strong.tagName).toBe("STRONG");
+    expect(strong.parentElement?.textContent).toBe("We sent a 6-digit code to a@b.com.");
+  });
+
+  it("sets the page title", () => {
+    renderConfirm(fakeAuth());
+    expect(document.title).toBe("Track That: Confirm code");
+  });
+
+  it("disables submit until exactly 6 digits are entered", () => {
+    renderConfirm(fakeAuth());
+    expect(submitButton().disabled).toBe(true);
+    fireEvent.change(codeInput(), { target: { value: "12345" } });
+    expect(submitButton().disabled).toBe(true);
+    fireEvent.change(codeInput(), { target: { value: "123456" } });
+    expect(submitButton().disabled).toBe(false);
+  });
+
+  it("strips non-digits and caps the code at 6 digits", () => {
+    renderConfirm(fakeAuth());
+    fireEvent.change(codeInput(), { target: { value: "12 ab34 56" } });
+    expect(codeInput().value).toBe("123456");
+    fireEvent.change(codeInput(), { target: { value: "12345678" } });
+    expect(codeInput().value).toBe("123456");
+  });
+
+  it("does not call confirmSignUp when submitted while invalid", () => {
+    const auth = fakeAuth();
+    renderConfirm(auth);
+    fireEvent.change(codeInput(), { target: { value: "123" } });
+    fireEvent.submit(codeInput().closest("form")!);
+    expect(auth.confirmSignUp).not.toHaveBeenCalled();
+  });
+
+  it("shows the invalid-code message as the alert tied to the code field", async () => {
     const auth = fakeAuth({
       confirmSignUp: vi.fn().mockRejectedValue(new AuthFailure("invalid-code")),
     });
     const { onConfirmed } = setup(auth);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe(messageFor("invalid-code"));
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(codeInput().getAttribute("aria-invalid")).toBe("true");
     expect(onConfirmed).not.toHaveBeenCalled();
   });
 
@@ -50,5 +107,14 @@ describe("Confirm", () => {
     setup(auth);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe(messageFor("expired-code"));
+  });
+
+  it("links Back and Start over to /register, with no inline styles", () => {
+    const { container } = renderConfirm(fakeAuth());
+    expect(screen.getByRole("link", { name: "Back" }).getAttribute("href")).toBe("/register");
+    expect(screen.getByRole("link", { name: "Wrong email? Start over" }).getAttribute("href")).toBe(
+      "/register",
+    );
+    expect(container.querySelector("[style]")).toBeNull();
   });
 });
