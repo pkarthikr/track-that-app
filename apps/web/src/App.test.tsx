@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { AuthApi } from "./auth/auth";
@@ -152,5 +152,55 @@ describe("App", () => {
   it("sends unknown paths signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/nope");
     expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+  });
+
+  describe("signed in", () => {
+    const signedIn = () => fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") });
+
+    it("keeps a signed-in user off /sign-in", async () => {
+      renderApp(signedIn(), "/sign-in");
+      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    });
+
+    it("keeps a signed-in user off /register", async () => {
+      renderApp(signedIn(), "/register");
+      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    });
+
+    it("keeps a signed-in user off /confirm", async () => {
+      render(
+        <MemoryRouter initialEntries={[{ pathname: "/confirm", state: { email: "a@x.com" } }]}>
+          <App auth={signedIn()} />
+        </MemoryRouter>,
+      );
+      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+    });
+  });
+
+  it("does not return to the sign-in form on Back after signing in", async () => {
+    function BackProbe() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate(-1)}>probe-back</button>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/sign-in"]}>
+        <BackProbe />
+        <App auth={fakeAuth()} />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: "Sign in" });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@x.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByRole("heading", { name: "Welcome" });
+    fireEvent.click(screen.getByRole("button", { name: "probe-back" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull());
+  });
+
+  it("falls back to signed out when the session check rejects", async () => {
+    renderApp(fakeAuth({ getCurrentUser: vi.fn().mockRejectedValue(new Error("boom")) }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Build habits you can see." }),
+    ).toBeTruthy();
   });
 });
