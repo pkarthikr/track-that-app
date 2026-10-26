@@ -72,12 +72,24 @@ describe("Confirm", () => {
     expect(submitButton().disabled).toBe(false);
   });
 
-  it("strips non-digits and caps the code at 6 digits", () => {
+  it("onChange strips non-digits and caps the value at 6 digits", () => {
     renderConfirm(fakeAuth());
     fireEvent.change(codeInput(), { target: { value: "12 ab34 56" } });
     expect(codeInput().value).toBe("123456");
     fireEvent.change(codeInput(), { target: { value: "12345678" } });
     expect(codeInput().value).toBe("123456");
+  });
+
+  it("accepts a pasted value with a space and enables submit", () => {
+    renderConfirm(fakeAuth());
+    fireEvent.change(codeInput(), { target: { value: "123 456" } });
+    expect(codeInput().value).toBe("123456");
+    expect(submitButton().disabled).toBe(false);
+  });
+
+  it("has no maxlength attribute, which would truncate pasted text before onChange", () => {
+    renderConfirm(fakeAuth());
+    expect(codeInput().hasAttribute("maxlength")).toBe(false);
   });
 
   it("does not call confirmSignUp when submitted while invalid", () => {

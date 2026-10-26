@@ -66,7 +66,6 @@ export function Confirm({
             label="Confirmation code"
             variant="code"
             inputMode="numeric"
-            maxLength={CODE_LENGTH}
             autoComplete="one-time-code"
             error={error}
             value={code}
