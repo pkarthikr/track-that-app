@@ -4,9 +4,9 @@ import type { AuthApi } from "./auth/auth";
 import { authApi } from "./auth/auth";
 import { Confirm } from "./screens/Confirm";
 import { Features } from "./screens/Features";
+import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
 import { Register } from "./screens/Register";
-import { SignedIn } from "./screens/SignedIn";
 import { SignIn } from "./screens/SignIn";
 
 type Session = { status: "loading" } | { status: "in"; email: string } | { status: "out" };
@@ -88,7 +88,7 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
         path="/home"
         element={
           session.status === "in" ? (
-            <SignedIn
+            <Home
               email={session.email}
               onSignOut={() => {
                 void auth.signOut().then(() => {

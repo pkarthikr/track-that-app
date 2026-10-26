@@ -40,6 +40,18 @@ describe("WeekRow", () => {
     expect(screen.getByRole("img", { name: "Saturday (today): not done" })).toBeTruthy();
   });
 
+  it("labels rest days", () => {
+    render(
+      <WeekRow days={["rest", "done", "rest", "done", "rest", "done", "rest"]} color="teal" />,
+    );
+    expect(screen.getByRole("img", { name: "Sunday: rest day" })).toBeTruthy();
+    expect(
+      screen
+        .getByRole("img", { name: "Saturday (today): rest day" })
+        .classList.contains("week-row__cell--rest"),
+    ).toBe(true);
+  });
+
   it("applies the colour class to done cells only", () => {
     render(<WeekRow days={days} color="violet" />);
     const cells = screen.getAllByRole("img");

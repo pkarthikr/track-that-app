@@ -29,3 +29,8 @@
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+
+.week-row__cell--rest {
+  border: 1.5px dashed #c9d2cb;
+  color: var(--color-muted);
+}
