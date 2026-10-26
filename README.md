@@ -7,7 +7,7 @@ TrackThat is a habit tracker. This repository is the monorepo for its web app, A
 ```
 track-that-app/
 ├── apps/
-│   └── web/              # @trackthat/web: Vite + React frontend (auth screens: register, confirm, sign in)
+│   └── web/              # @trackthat/web: Vite + React frontend (design system in src/design; Landing "/" and Features "/features" pages via react-router; auth screens: register, confirm, sign in)
 ├── services/
 │   └── api/              # @trackthat/api: Lambda handler returning { message: "hello" }
 ├── packages/
@@ -112,6 +112,7 @@ Manual smoke test: register, receive the code by email, confirm, sign in, sign o
 
 ## Notes and Decisions
 
+- **Web styling must stay CSP-safe.** CloudFront serves `style-src 'self'`, so the web app uses no inline styles (`style="..."` or injected `<style>` tags) and no external fonts or CSS. Fonts are self-hosted through Fontsource, and assets are never inlined as `data:` URIs.
 - **Node 26 for development.** `.nvmrc`, `engines`, and CI all use Node 26. The Lambda bundle still targets `node22` (esbuild `--target`) to match the AWS Lambda runtime; change it once a Node 26 runtime is available there.
 - **Library packages are source-consumed.** Keeping `shared` and `core` as source avoids build-order problems in `pnpm -r`. If they are ever published, add an emit step.
 - **`api` is bundled, not `tsc`-compiled,** because its workspace dependency is TypeScript source. The bundle is CommonJS so the Lambda loads it without extra config.
