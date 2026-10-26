@@ -2,8 +2,15 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 
+import "@fontsource-variable/bricolage-grotesque/wght.css";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
+
 import { App } from "./App";
 import { configureAuth } from "./auth/config";
+import "./design/tokens.css";
+import "./design/base.css";
 
 const root = createRoot(document.getElementById("root")!);
 
