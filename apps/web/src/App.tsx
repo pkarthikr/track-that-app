@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import type { AuthApi } from "./auth/auth";
 import { authApi } from "./auth/auth";
 import { Confirm } from "./screens/Confirm";
@@ -6,59 +7,83 @@ import { Register } from "./screens/Register";
 import { SignedIn } from "./screens/SignedIn";
 import { SignIn } from "./screens/SignIn";
 
-type View =
-  | { name: "loading" }
-  | { name: "register" }
-  | { name: "confirm"; email: string }
-  | { name: "signIn" }
-  | { name: "signedIn"; email: string };
+type Session = { status: "loading" } | { status: "in"; email: string } | { status: "out" };
+
+function ConfirmRoute({ auth }: { auth: AuthApi }) {
+  const navigate = useNavigate();
+  const state = useLocation().state as { email?: unknown } | null;
+  const email = typeof state?.email === "string" ? state.email : null;
+  if (!email) return <Navigate to="/register" replace />;
+  return <Confirm auth={auth} email={email} onConfirmed={() => navigate("/sign-in")} />;
+}
 
 export function App({ auth = authApi }: { auth?: AuthApi }) {
-  const [view, setView] = useState<View>({ name: "loading" });
+  const [session, setSession] = useState<Session>({ status: "loading" });
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
     auth.getCurrentUser().then((email) => {
       if (cancelled) return;
-      setView(email ? { name: "signedIn", email } : { name: "signIn" });
+      setSession(email ? { status: "in", email } : { status: "out" });
     });
     return () => {
       cancelled = true;
     };
   }, [auth]);
 
-  switch (view.name) {
-    case "loading":
-      return <p>Loading…</p>;
-    case "register":
-      return (
-        <Register
-          auth={auth}
-          onRegistered={(email) => setView({ name: "confirm", email })}
-          onShowSignIn={() => setView({ name: "signIn" })}
-        />
-      );
-    case "confirm":
-      return (
-        <Confirm auth={auth} email={view.email} onConfirmed={() => setView({ name: "signIn" })} />
-      );
-    case "signIn":
-      return (
-        <SignIn
-          auth={auth}
-          onSignedIn={(email) => setView({ name: "signedIn", email })}
-          onNeedsConfirmation={(email) => setView({ name: "confirm", email })}
-          onShowRegister={() => setView({ name: "register" })}
-        />
-      );
-    case "signedIn":
-      return (
-        <SignedIn
-          email={view.email}
-          onSignOut={() => {
-            void auth.signOut().then(() => setView({ name: "signIn" }));
-          }}
-        />
-      );
-  }
+  if (session.status === "loading") return <p>Loading…</p>;
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={<Navigate to={session.status === "in" ? "/home" : "/sign-in"} replace />}
+      />
+      <Route
+        path="/sign-in"
+        element={
+          <SignIn
+            auth={auth}
+            onSignedIn={(email) => {
+              setSession({ status: "in", email });
+              navigate("/home");
+            }}
+            onNeedsConfirmation={(email) => navigate("/confirm", { state: { email } })}
+            onShowRegister={() => navigate("/register")}
+          />
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <Register
+            auth={auth}
+            onRegistered={(email) => navigate("/confirm", { state: { email } })}
+            onShowSignIn={() => navigate("/sign-in")}
+          />
+        }
+      />
+      <Route path="/confirm" element={<ConfirmRoute auth={auth} />} />
+      <Route
+        path="/home"
+        element={
+          session.status === "in" ? (
+            <SignedIn
+              email={session.email}
+              onSignOut={() => {
+                void auth.signOut().then(() => {
+                  setSession({ status: "out" });
+                  navigate("/sign-in");
+                });
+              }}
+            />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
