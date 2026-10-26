@@ -7,10 +7,11 @@ import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 
-import { App } from "./App";
-import { configureAuth } from "./auth/config";
 import "./design/tokens.css";
 import "./design/base.css";
+
+import { App } from "./App";
+import { configureAuth } from "./auth/config";
 
 const root = createRoot(document.getElementById("root")!);
 

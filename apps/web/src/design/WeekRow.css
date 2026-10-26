@@ -26,7 +26,6 @@
 }
 
 .week-row__cell--today {
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px var(--color-ink);
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
