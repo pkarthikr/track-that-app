@@ -49,7 +49,7 @@ describe("App", () => {
     renderApp(auth, "/sign-in");
     await screen.findByRole("heading", { name: "Sign in" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
+    fireEvent.click(screen.getByRole("link", { name: "Create an account" }));
     await screen.findByRole("heading", { name: "Create your account" });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@x.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
