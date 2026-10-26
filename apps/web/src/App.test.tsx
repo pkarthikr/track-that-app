@@ -32,14 +32,16 @@ describe("App", () => {
     expect(screen.getByText("a@x.com")).toBeTruthy();
   });
 
-  it("shows sign in when there is no session", async () => {
+  it("shows the landing page when there is no session", async () => {
     renderApp(fakeAuth());
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Build habits you can see." }),
+    ).toBeTruthy();
   });
 
   it("register, confirm, sign in, sign out", async () => {
     const auth = fakeAuth();
-    renderApp(auth);
+    renderApp(auth, "/sign-in");
     await screen.findByRole("heading", { name: "Sign in" });
 
     fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
@@ -71,7 +73,7 @@ describe("App", () => {
     const auth = fakeAuth({
       signIn: vi.fn().mockRejectedValue(new AuthFailure("user-not-confirmed")),
     });
-    renderApp(auth);
+    renderApp(auth, "/sign-in");
     await screen.findByRole("heading", { name: "Sign in" });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@x.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Passw0rd!" } });
@@ -95,7 +97,11 @@ describe("App", () => {
     expect(screen.queryByRole("heading")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     resolve(null);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Build habits you can see." }),
+      ).toBeTruthy(),
+    );
     expect(auth.getCurrentUser).toHaveBeenCalledTimes(1);
   });
 
@@ -107,6 +113,23 @@ describe("App", () => {
   it("sends / signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
     expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+  });
+
+  it("shows landing at / signed out and welcome at / signed in", async () => {
+    const out = renderApp(fakeAuth(), "/");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Build habits you can see." }),
+    ).toBeTruthy();
+    out.unmount();
+    renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
+    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeTruthy();
+  });
+
+  it("reaches the sign-in form from the landing page", async () => {
+    renderApp(fakeAuth(), "/");
+    await screen.findByRole("heading", { level: 1 });
+    fireEvent.click(screen.getAllByRole("link", { name: "Sign in" })[0]!);
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
   });
 
   it("sends /confirm without state to register", async () => {

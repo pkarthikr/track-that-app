@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
 import type { AuthApi } from "./auth/auth";
 import { authApi } from "./auth/auth";
 import { Confirm } from "./screens/Confirm";
+import { Landing } from "./screens/Landing";
 import { Register } from "./screens/Register";
 import { SignedIn } from "./screens/SignedIn";
 import { SignIn } from "./screens/SignIn";
@@ -38,7 +39,7 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
     <Routes>
       <Route
         path="/"
-        element={<Navigate to={session.status === "in" ? "/home" : "/sign-in"} replace />}
+        element={session.status === "in" ? <Navigate to="/home" replace /> : <Landing />}
       />
       <Route
         path="/sign-in"
@@ -79,11 +80,14 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
               }}
             />
           ) : (
-            <Navigate to="/" replace />
+            <Navigate to="/sign-in" replace />
           )
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="*"
+        element={<Navigate to={session.status === "in" ? "/home" : "/sign-in"} replace />}
+      />
     </Routes>
   );
 }
