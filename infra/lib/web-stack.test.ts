@@ -191,6 +191,19 @@ describe("WebStack", () => {
     expect(csp.split(/[\s;]+/)).not.toContain("*");
   });
 
+  it("adds the API endpoint to connect-src only when provided", () => {
+    const endpoint = "https://abc.execute-api.us-east-1.amazonaws.com";
+    const withApi = Template.fromStack(
+      new WebStack(new App(), "TestWebApi", { webAssetPath: fixture, apiEndpoint: endpoint }),
+    );
+    const policies = Object.values(withApi.findResources("AWS::CloudFront::ResponseHeadersPolicy"));
+    const csp = JSON.stringify(
+      policies[0]?.Properties.ResponseHeadersPolicyConfig.SecurityHeadersConfig
+        .ContentSecurityPolicy,
+    );
+    expect(csp).toContain(`amazonaws.com ${endpoint};`);
+  });
+
   it("publishes the web build and invalidates the cache", () => {
     template.hasResourceProperties("Custom::CDKBucketDeployment", {
       Prune: true,

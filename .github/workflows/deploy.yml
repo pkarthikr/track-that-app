@@ -68,6 +68,9 @@ jobs:
           VITE_USER_POOL_CLIENT_ID: ${{ vars.VITE_USER_POOL_CLIENT_ID }}
         run: pnpm --filter @trackthat/web build
 
+      - name: Build API
+        run: pnpm --filter @trackthat/api build
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:

@@ -18,6 +18,7 @@ import type { Construct } from "constructs";
 
 export interface WebStackProps extends StackProps {
   readonly webAssetPath?: string;
+  readonly apiEndpoint?: string;
 }
 
 const defaultWebAssetPath = fileURLToPath(new URL("../../apps/web/dist", import.meta.url));
@@ -57,7 +58,10 @@ export class WebStack extends Stack {
       "script-src 'self'",
       "style-src 'self'",
       "img-src 'self' data:",
-      `connect-src 'self' https://cognito-idp.${this.region}.amazonaws.com`,
+      [
+        `connect-src 'self' https://cognito-idp.${this.region}.amazonaws.com`,
+        ...(props?.apiEndpoint === undefined ? [] : [props.apiEndpoint]),
+      ].join(" "),
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

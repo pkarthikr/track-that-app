@@ -7,9 +7,12 @@ import { WebStack } from "../lib/web-stack";
 
 const app = new App();
 
-new ApiStack(app, "TrackThatApi");
-new AuthStack(app, "TrackThatAuth");
+const auth = new AuthStack(app, "TrackThatAuth");
+const api = new ApiStack(app, "TrackThatApi", {
+  userPool: auth.userPool,
+  userPoolClient: auth.userPoolClient,
+});
 new GithubOidcStack(app, "GithubOidcStack");
-new WebStack(app, "TrackThatWeb");
+new WebStack(app, "TrackThatWeb", { apiEndpoint: api.httpApi.apiEndpoint });
 
 app.synth();
