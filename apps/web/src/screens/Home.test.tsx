@@ -225,7 +225,26 @@ describe("Home", () => {
       expect(check().getAttribute("aria-pressed")).toBe("false");
       expect((await screen.findByRole("alert")).textContent).toBe("Couldn't save that. Try again.");
       expect(check()).toHaveProperty("disabled", false);
-      expect(api.listHabits).toHaveBeenCalledTimes(1);
+      // A failed write may still have been applied, so the list is refreshed.
+      await waitFor(() => expect(api.listHabits).toHaveBeenCalledTimes(2));
+    });
+
+    it("resyncs after a failed write the server actually applied", async () => {
+      const api = fakeApi();
+      const write = deferred();
+      vi.mocked(api.logCompletion).mockReturnValueOnce(write.promise);
+      renderHome(api);
+      await screen.findByText("Read 20 pages");
+
+      vi.mocked(api.listHabits).mockResolvedValueOnce([habit({ weekDone: [TODAY], streak: 1 })]);
+      fireEvent.click(check());
+      await act(async () => {
+        write.reject(new Error("timeout"));
+      });
+
+      expect((await screen.findByRole("alert")).textContent).toBe("Couldn't save that. Try again.");
+      expect(await screen.findByText("Streak 1")).toBeTruthy();
+      expect(check().getAttribute("aria-pressed")).toBe("true");
     });
 
     it("reloads after a later write fails so an earlier tick's streak still refreshes", async () => {

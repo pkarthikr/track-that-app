@@ -148,7 +148,8 @@ export function Home({
       apply(wasDone);
       setSaveFailed(true);
       setPending(habit.id, false);
-      if (stale.current && pending.current.size === 0) void fetchHabits(() => {});
+      // The write may have been applied despite the error: always resync.
+      if (pending.current.size === 0) void fetchHabits(() => {});
       return;
     }
     setPending(habit.id, false);
