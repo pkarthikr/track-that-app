@@ -1,27 +1,31 @@
 import type { HabitColor } from "./palette";
-import { WeekRow, type DayState, type WeekDays } from "./WeekRow";
+import { WeekRow, type WeekDays } from "./WeekRow";
 import "./HabitRow.css";
-
-type PastWeek = readonly [DayState, DayState, DayState, DayState, DayState, DayState];
 
 export function HabitRow({
   name,
   color,
   active,
-  done,
-  past,
-  today,
-  onToggle,
+  streak,
+  days,
+  todayIndex,
+  pending = false,
+  onOpen,
+  onToggleDay,
 }: {
   name: string;
   color: HabitColor;
+  /** The habit is scheduled today. */
   active: boolean;
-  done: boolean;
-  past: PastWeek;
-  today: Exclude<DayState, "done">;
-  onToggle: () => void;
+  streak: number;
+  days: WeekDays;
+  todayIndex: number;
+  /** A write for this habit is in flight. */
+  pending?: boolean;
+  onOpen: () => void;
+  onToggleDay: (index: number) => void;
 }) {
-  const days: WeekDays = [...past, done ? "done" : today];
+  const done = days[todayIndex] === "done";
   const classes = ["habit-row", `habit-color--${color}`];
   if (!active) classes.push("habit-row--inactive");
   if (done) classes.push("habit-row--done");
@@ -34,7 +38,8 @@ export function HabitRow({
           className="habit-row__check"
           aria-pressed={done}
           aria-label={`Mark ${name} done`}
-          onClick={onToggle}
+          disabled={pending}
+          onClick={() => onToggleDay(todayIndex)}
         >
           {done && (
             <svg
@@ -52,10 +57,13 @@ export function HabitRow({
             </svg>
           )}
         </button>
-        <span className="habit-row__name">{name}</span>
+        <button type="button" className="habit-row__name" onClick={onOpen}>
+          {name}
+        </button>
+        {streak > 0 && <span className="habit-row__streak">{`Streak ${streak}`}</span>}
       </div>
       <div className="habit-row__week">
-        <WeekRow days={days} color={color} />
+        <WeekRow days={days} color={color} todayIndex={todayIndex} onToggleDay={onToggleDay} />
       </div>
     </li>
   );

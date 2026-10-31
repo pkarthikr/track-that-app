@@ -23,8 +23,7 @@ function ConfirmRoute({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-// `habits` is accepted here and wired into Home in a later task.
-export function App({ auth = authApi }: { auth?: AuthApi; habits: HabitsApi }) {
+export function App({ auth = authApi, habits }: { auth?: AuthApi; habits: HabitsApi }) {
   const { session, signedIn: markSignedIn, signOut } = useAuthSession(auth);
   const navigate = useNavigate();
 
@@ -73,6 +72,9 @@ export function App({ auth = authApi }: { auth?: AuthApi; habits: HabitsApi }) {
             session.status === "in" ? (
               <Home
                 email={session.email}
+                api={habits}
+                onNewHabit={() => navigate("/habits/new")}
+                onOpenHabit={(id) => navigate(`/habits/${id}`)}
                 onSignOut={() => {
                   void signOut().then(() => navigate("/sign-in", { replace: true }));
                 }}
