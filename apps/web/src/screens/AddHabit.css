@@ -98,6 +98,13 @@ fieldset.add-habit__group .add-habit__label {
     0 0 0 4px currentColor;
 }
 
+.add-habit__error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: 15px;
+  line-height: 22px;
+}
+
 .add-habit__submit {
   margin-top: auto;
 }

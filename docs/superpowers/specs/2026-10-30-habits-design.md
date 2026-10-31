@@ -118,7 +118,7 @@ Errors use a small JSON body with a stable `code` and 4xx status for the caller'
 - **Content security policy**: `WebStack`'s `connect-src` must allow the API origin. `WebStack` takes the API endpoint from `ApiStack` as a prop; `ApiStack` takes nothing from `WebStack`, so there is no cycle.
 - **Home**: loads `GET /habits?today=D` and renders `HabitRow`s from the result. Ticking updates the screen immediately and rolls back with an inline error if the request fails. Each row shows its streak. The empty state shows when there are no active habits.
 - **Week grid**: `WeekRow` renders the calendar week, today highlighted, and gains an `upcoming` state for days after today. Upcoming days are faded and cannot be ticked. A scheduled past day without a completion is `open`, an unscheduled day is `rest`. Every non-upcoming cell on Home is tappable to log or undo that day, which is how a missed day is back-filled; the heatmap on the detail screen is read-only.
-- **New habit** (`/habits/new`, opened from the existing + button): name field, the existing `ColorSwatches`, and seven weekday chips with at least one required.
+- **New habit** (`/habits/new`, opened from the existing + button): the owner's `AddHabit` design (name field, day toggles with at least one required, colour swatches, and an "Added" confirmation) wired to `HabitsApi.createHabit`.
 - **Habit detail** (`/habits/:id`, opened by tapping a habit): a heatmap component of 53 weeks by 7 days, completed days in the habit's color and all others muted, the current streak, and an Archive action with a confirmation.
 - `mockHabits.ts` is deleted. `Home`, `HabitRow` and their tests move to the real types.
 

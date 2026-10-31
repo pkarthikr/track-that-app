@@ -147,9 +147,9 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
   });
 
-  it("shows the new habit form signed in", async () => {
+  it("shows the add habit screen signed in", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/habits/new");
-    expect(await screen.findByRole("button", { name: "Create habit" })).toBeTruthy();
+    expect(await screen.findByLabelText("What do you want to track?")).toBeTruthy();
     expect(document.title).toBe("Track That: New habit");
   });
 
@@ -158,7 +158,7 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
   });
 
-  it("shows the detail screen for /habits/:id and still the form for /habits/new", async () => {
+  it("shows the detail screen for /habits/:id and still the add screen for /habits/new", async () => {
     const habits = fakeHabits();
     habits.getHabit = vi.fn().mockResolvedValue({
       id: "abc",
@@ -180,7 +180,7 @@ describe("App", () => {
     expect(habits.getHabit).toHaveBeenCalledWith("abc", expect.any(String));
     detail.unmount();
     renderApp(signedIn(), "/habits/new");
-    expect(await screen.findByRole("button", { name: "Create habit" })).toBeTruthy();
+    expect(await screen.findByLabelText("What do you want to track?")).toBeTruthy();
   });
 
   it("sends / signed in to the welcome screen", async () => {

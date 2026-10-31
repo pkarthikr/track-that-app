@@ -1,9 +1,11 @@
+import { parseNewHabit } from "@trackthat/shared";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Button } from "../design/Button";
 import { PageShell } from "../design/PageShell";
 import { HABIT_COLORS, habitColor, type HabitColor } from "../design/palette";
 import { usePageTitle } from "../design/usePageTitle";
+import type { HabitsApi } from "../habits/api";
 import "./AddHabit.css";
 
 const DAYS = [
@@ -15,6 +17,8 @@ const DAYS = [
   { letter: "F", short: "Fri", full: "Friday" },
   { letter: "S", short: "Sat", full: "Saturday" },
 ] as const;
+
+const SAVE_ERROR = "Couldn't add the habit. Try again.";
 
 function capitalise(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -30,15 +34,26 @@ function dueLine(days: ReadonlySet<number>, today: number): string {
 }
 
 /** `today` is a day index, Sunday = 0. */
-export function AddHabit({ today = new Date().getDay() }: { today?: number }) {
+export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi; today?: number }) {
   usePageTitle("Track That: New habit");
   const [name, setName] = useState("");
   const [days, setDays] = useState<ReadonlySet<number>>(new Set());
   const [color, setColor] = useState<HabitColor>("green");
   const [added, setAdded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const homeLink = useRef<HTMLAnchorElement>(null);
+  const inFlight = useRef(false);
+  const mounted = useRef(true);
 
   const canSave = name.trim().length > 0 && days.size > 0;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (added) homeLink.current?.focus();
@@ -52,9 +67,26 @@ export function AddHabit({ today = new Date().getDay() }: { today?: number }) {
     });
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (canSave) setAdded(true);
+    if (!canSave || inFlight.current) return;
+    setError(null);
+    const parsed = parseNewHabit({ name, color, weekdays: [...days].sort((a, b) => a - b) });
+    if (!parsed.ok) {
+      setError(parsed.message);
+      return;
+    }
+    inFlight.current = true;
+    setSaving(true);
+    try {
+      await api.createHabit(parsed.value);
+      if (mounted.current) setAdded(true);
+    } catch {
+      if (mounted.current) setError(SAVE_ERROR);
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setSaving(false);
+    }
   }
 
   return (
@@ -62,7 +94,7 @@ export function AddHabit({ today = new Date().getDay() }: { today?: number }) {
       <main className={`add-habit habit-color--${color}`}>
         <h1 className="add-habit__title">New habit</h1>
 
-        <form className="add-habit__form" onSubmit={submit}>
+        <form className="add-habit__form" onSubmit={(event) => void submit(event)}>
           <div className="add-habit__group">
             <label className="add-habit__label" htmlFor="habit-name">
               What do you want to track?
@@ -113,8 +145,14 @@ export function AddHabit({ today = new Date().getDay() }: { today?: number }) {
             </div>
           </fieldset>
 
+          {error && (
+            <p className="add-habit__error" role="alert">
+              {error}
+            </p>
+          )}
+
           <div className="add-habit__submit">
-            <Button type="submit" disabled={!canSave}>
+            <Button type="submit" disabled={!canSave || saving}>
               Add habit
             </Button>
           </div>
