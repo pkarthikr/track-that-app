@@ -13,6 +13,8 @@
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource/dm-sans": "^5.3.0",
+    "@pkarthikr/auth-client": "^0.1.0",
+    "@pkarthikr/auth-react": "^0.1.0",
     "@trackthat/shared": "workspace:*",
     "aws-amplify": "^6.22.2",
     "react": "^19.3.0",

@@ -7,16 +7,18 @@ import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 
+import "@pkarthikr/auth-react/theme.css";
+
 import "./design/tokens.css";
 import "./design/base.css";
 
+import { configureAuth } from "@pkarthikr/auth-client";
 import { App } from "./App";
-import { configureAuth } from "./auth/config";
 
 const root = createRoot(document.getElementById("root")!);
 
 try {
-  configureAuth();
+  configureAuth(import.meta.env);
   root.render(
     <StrictMode>
       <BrowserRouter>
