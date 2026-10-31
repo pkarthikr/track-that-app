@@ -3,6 +3,7 @@ import type { AuthApi } from "@pkarthikr/auth-client";
 import { AuthProvider, Confirm, Register, SignIn, useAuthSession } from "@pkarthikr/auth-react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import { PageShell } from "./design/PageShell";
+import type { HabitsApi } from "./habits/api";
 import { Features } from "./screens/Features";
 import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
@@ -22,7 +23,8 @@ function ConfirmRoute({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-export function App({ auth = authApi }: { auth?: AuthApi }) {
+// `habits` is accepted here and wired into Home in a later task.
+export function App({ auth = authApi }: { auth?: AuthApi; habits: HabitsApi }) {
   const { session, signedIn: markSignedIn, signOut } = useAuthSession(auth);
   const navigate = useNavigate();
 

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { AuthFailure } from "@pkarthikr/auth-client";
 import type { AuthApi } from "@pkarthikr/auth-client";
+import type { HabitsApi } from "./habits/api";
 
 function fakeAuth(overrides: Partial<AuthApi> = {}): AuthApi {
   return {
@@ -16,10 +17,21 @@ function fakeAuth(overrides: Partial<AuthApi> = {}): AuthApi {
   };
 }
 
+function fakeHabits(): HabitsApi {
+  return {
+    listHabits: vi.fn().mockResolvedValue([]),
+    getHabit: vi.fn(),
+    createHabit: vi.fn(),
+    updateHabit: vi.fn(),
+    logCompletion: vi.fn().mockResolvedValue(undefined),
+    undoCompletion: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 function renderApp(auth: AuthApi, path = "/") {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <App auth={auth} />
+      <App auth={auth} habits={fakeHabits()} />
     </MemoryRouter>,
   );
 }
@@ -172,7 +184,7 @@ describe("App", () => {
     it("keeps a signed-in user off /confirm", async () => {
       render(
         <MemoryRouter initialEntries={[{ pathname: "/confirm", state: { email: "a@x.com" } }]}>
-          <App auth={signedIn()} />
+          <App auth={signedIn()} habits={fakeHabits()} />
         </MemoryRouter>,
       );
       expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
@@ -187,7 +199,7 @@ describe("App", () => {
     render(
       <MemoryRouter initialEntries={["/sign-in"]}>
         <BackProbe />
-        <App auth={fakeAuth()} />
+        <App auth={fakeAuth()} habits={fakeHabits()} />
       </MemoryRouter>,
     );
     await screen.findByRole("heading", { name: "Sign in" });
@@ -224,7 +236,7 @@ describe("App", () => {
     it("confirm: Back and Start over both link to register", async () => {
       render(
         <MemoryRouter initialEntries={[{ pathname: "/confirm", state: { email: "a@x.com" } }]}>
-          <App auth={fakeAuth()} />
+          <App auth={fakeAuth()} habits={fakeHabits()} />
         </MemoryRouter>,
       );
       await screen.findByRole("heading", { name: "Check your email" });
