@@ -129,6 +129,17 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
   });
 
+  it("sends /habits/new signed out to sign in", async () => {
+    renderApp(fakeAuth(), "/habits/new");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+  });
+
+  it("shows the new habit form signed in", async () => {
+    renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/habits/new");
+    expect(await screen.findByRole("button", { name: "Create habit" })).toBeTruthy();
+    expect(document.title).toBe("Track That: New habit");
+  });
+
   it("sends / signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
     expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
