@@ -56,7 +56,7 @@ Moved from `apps/web/src/auth/` with its tests: the `AuthApi` interface, `authAp
 
 ### `@pkarthikr/auth-react`
 
-Depends on `auth-client`; `react` is a peer dependency. It does not depend on `react-router`.
+`auth-client` and `react` are peer dependencies of this package (the app installs `auth-client` itself, and needs it for `configureAuth` and `authApi` anyway). A peer, not a pinned dependency, so the app and the screens share one copy of `auth-client`: a second copy would break the `instanceof AuthFailure` check in the form handling. As a safety net the form hook also accepts an error named `AuthFailure` with a string `code`. It does not depend on `react-router`.
 
 Exports:
 
@@ -89,7 +89,7 @@ The existing TrackThat tests for the screens and `App` should pass with only imp
 
 ## Build and publishing
 
-Each package is built with `tsup` into an ES module bundle plus type declarations in `dist/` (`auth-react` also copies `theme.css` there); TrackThat's `infra` runs through `tsx` and the web app through Vite, so both consume the bundles. In the monorepo each package's `exports` point at `src/` so packages and tests resolve each other without a build; `publishConfig.exports` overrides them to `dist/` at publish time. A check script packs every package and fails if a published manifest still contains a `workspace:` specifier or a `src/` path. Consumers need `packages: read` permission in their workflows to install from GitHub Packages.
+Each package is built with `tsup` into an ES module bundle plus type declarations in `dist/` (`auth-react` also copies `theme.css` there); TrackThat's `infra` runs through `tsx` and the web app through Vite, so both consume the bundles. In the monorepo each package's `exports` point at `src/` so packages and tests resolve each other without a build; `publishConfig.exports` overrides them to `dist/` at publish time. A check script packs every package and fails if a published manifest still contains a `workspace:` specifier or a `src/` path. Each package sets `repository` (with its `directory`) to `pkarthikr/ideas-toolkit`, because GitHub Packages links a package to the repo named there and the check script verifies it. Consumers need `packages: read` permission in their workflows to install from GitHub Packages.
 
 ## Releases
 

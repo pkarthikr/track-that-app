@@ -19,7 +19,7 @@
 
 - Package scope `@pkarthikr`; names `@pkarthikr/auth-client`, `@pkarthikr/auth-react`, `@pkarthikr/auth-cdk`; folders `packages/auth/{client,react,cdk}`; `pnpm-workspace.yaml` lists `packages/*/*` and `packages/*`.
 - Tooling matches TrackThat's: pnpm `12.11.2`, Node `>=26 <27` (`.nvmrc`), TypeScript `~6.0.3`, ESLint, Prettier, Vitest `^5.0.3`. Copy configs from `$TT` rather than rewriting them.
-- Peer dependencies: `aws-amplify` (client), `react` (react), `aws-cdk-lib` and `constructs` (cdk). `auth-react` depends on `auth-client` and does not depend on `react-router`.
+- Peer dependencies: `aws-amplify` (client), `react` (react), `aws-cdk-lib` and `constructs` (cdk). `auth-client` is a peer dependency of `auth-react` (decision made after the Phase A review, see the spec), and `auth-react` does not depend on `react-router`.
 - Styling: plain CSS, no inline `style=` (TrackThat's CSP is `style-src 'self'`). Theme variables, each used as `var(--auth-x, fallback)`: `--auth-brand`, `--auth-brand-tint`, `--auth-ink`, `--auth-muted`, `--auth-border`, `--auth-input-border`, `--auth-disabled-bg`, `--auth-surface`, `--auth-error`, `--auth-radius`, `--auth-radius-card`, `--auth-font`, `--auth-font-display`.
 - Cognito settings are unchanged from `infra/lib/auth-stack.ts`: email sign-in (case-insensitive), self sign-up, email auto-verify, password 8+ with lower/upper/digit/symbol, MFA off, account recovery none; public SRP-only client, no OAuth, token revocation on, user-existence errors prevented, 1-hour access and ID tokens.
 - Versions start at `0.x`; the first release is `0.1.0`.
