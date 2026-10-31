@@ -228,6 +228,42 @@ describe("Home", () => {
       expect(api.listHabits).toHaveBeenCalledTimes(1);
     });
 
+    it("reloads after a later write fails so an earlier tick's streak still refreshes", async () => {
+      const api = fakeApi([habit(), habit({ id: "h2", name: "Stretch" })]);
+      renderHome(api);
+      await screen.findByText("Stretch");
+
+      let release!: (habits: HabitSummary[]) => void;
+      vi.mocked(api.listHabits).mockReturnValueOnce(
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      );
+      fireEvent.click(check());
+      await waitFor(() => expect(api.listHabits).toHaveBeenCalledTimes(2));
+
+      const second = deferred();
+      vi.mocked(api.logCompletion).mockReturnValueOnce(second.promise);
+      fireEvent.click(check("Stretch"));
+
+      // Reload for the first tick returns while the second write is pending: dropped.
+      await act(async () => {
+        release([habit({ weekDone: [TODAY], streak: 1 }), habit({ id: "h2", name: "Stretch" })]);
+      });
+      expect(screen.queryByText("Streak 1")).toBeNull();
+
+      vi.mocked(api.listHabits).mockResolvedValueOnce([
+        habit({ weekDone: [TODAY], streak: 1 }),
+        habit({ id: "h2", name: "Stretch" }),
+      ]);
+      await act(async () => {
+        second.reject(new Error("nope"));
+      });
+      expect(await screen.findByText("Streak 1")).toBeTruthy();
+      expect(api.listHabits).toHaveBeenCalledTimes(3);
+      expect(check("Stretch").getAttribute("aria-pressed")).toBe("false");
+    });
+
     it("ignores a stale reload that returns after a later write started", async () => {
       const api = fakeApi([habit(), habit({ id: "h2", name: "Stretch" })]);
       renderHome(api);

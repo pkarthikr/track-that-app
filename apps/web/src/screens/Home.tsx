@@ -72,13 +72,16 @@ export function Home({
   const latestLoad = useRef(0);
   const pending = useRef(new Set<string>());
   const stale = useRef(false);
+  const loadInFlight = useRef(false);
 
   const fetchHabits = useCallback(
     async (onFailure: () => void) => {
       const request = ++latestLoad.current;
+      loadInFlight.current = true;
       try {
         const loaded = await api.listHabits(today);
         if (request !== latestLoad.current) return;
+        loadInFlight.current = false;
         if (pending.current.size > 0) {
           stale.current = true;
           return;
@@ -87,7 +90,10 @@ export function Home({
         setHabits(loaded);
         setLoad("ready");
       } catch {
-        if (request === latestLoad.current) onFailure();
+        if (request === latestLoad.current) {
+          loadInFlight.current = false;
+          onFailure();
+        }
       }
     },
     [api, today],
@@ -128,6 +134,11 @@ export function Home({
       setHabits((list) => list.map((h) => (h.id === habit.id ? withDay(h, date, done) : h)));
 
     latestLoad.current++; // any list request already in flight predates this write
+    if (loadInFlight.current) {
+      // Its result is dropped, so a reload is still owed once writes settle.
+      stale.current = true;
+      loadInFlight.current = false;
+    }
     setPending(habit.id, true);
     setSaveFailed(false);
     apply(!wasDone);
