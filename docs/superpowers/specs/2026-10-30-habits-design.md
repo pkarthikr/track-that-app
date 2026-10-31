@@ -54,17 +54,17 @@ One table. Every item belongs to one user, and the partition key is that user's 
 
 ### Access patterns
 
-| #   | Operation                               | How it is served                                                                                                             |
-| --- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1   | List a user's active habits             | Query `PK`, `SK begins_with HABIT#`, filter out items with `archivedAt`                                                      |
-| 2   | This week's completions for every habit | One range Query per habit on `COMP#<habitId>#<sunday>` to `COMP#<habitId>#<today>`, run in parallel                          |
-| 3   | Log or undo a completion                | `PutItem` or `DeleteItem` on the deterministic key                                                                           |
-| 4   | One habit and its last 365 days         | `GetItem` for the habit, plus one range Query on `COMP#<habitId>#<today-364>` to `...#<today>`                               |
-| 5   | A habit's current streak                | Query `COMP#<habitId>#` in descending order from today, stop at the first missed scheduled day, paging if the streak is long |
-| 6   | Create a habit                          | `PutItem`, conditional on the key not existing                                                                               |
-| 7   | Rename, recolor, archive                | `UpdateItem`, conditional on the habit existing                                                                              |
+| #   | Operation                               | How it is served                                                                                                          |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | List a user's active habits             | Query `PK`, `SK begins_with HABIT#`, filter out items with `archivedAt`                                                   |
+| 2   | This week's completions for every habit | One Query per habit on the `COMP#<habitId>#` prefix, run in parallel; the week is the dates on or after the week's Sunday |
+| 3   | Log or undo a completion                | `PutItem` or `DeleteItem` on the deterministic key                                                                        |
+| 4   | One habit and its last 365 days         | `GetItem` for the habit, plus one range Query on `COMP#<habitId>#<today-364>` to `...#<today>`                            |
+| 5   | A habit's current streak                | The same `COMP#<habitId>#` Query (all pages); the streak is computed in memory                                            |
+| 6   | Create a habit                          | `PutItem`, conditional on the key not existing                                                                            |
+| 7   | Rename, recolor, archive                | `UpdateItem`, conditional on the habit existing                                                                           |
 
-Pattern 2 costs one small query per habit, which is fine for the limit below. If it ever becomes slow, a GSI keyed by date serves the whole week in one query. DynamoDB can add a GSI to a live table, so this design does not close that door.
+Patterns 2 and 5 share one read per habit: every completion date for that habit, all pages, then the week, the streak and the 365-day window are derived in memory. At personal scale (a daily habit is about 365 tiny items a year) this is cheap. An early-stopping descending read is a later optimization if long histories ever make Home slow. If it ever becomes slow, a GSI keyed by date serves the whole week in one query. DynamoDB can add a GSI to a live table, so this design does not close that door.
 
 ### Growth
 
@@ -83,7 +83,7 @@ This is a pure function in `packages/core` (no AWS dependency) and carries the b
 
 ## API
 
-An HTTP API with a Cognito JWT authorizer against the existing user pool. Unauthenticated requests are rejected by API Gateway before the Lambda runs. CORS allows the CloudFront origin of the web stack.
+An HTTP API with a Cognito JWT authorizer against the existing user pool. Unauthenticated requests are rejected by API Gateway before the Lambda runs. CORS allows any origin: access is controlled by the bearer token in the `Authorization` header (no cookies), and naming the CloudFront origin would make `ApiStack` and `WebStack` depend on each other.
 
 The Lambda is a single function with a small router, which is the shape `services/api` already has. The user id comes from the verified `sub` claim.
 
@@ -101,7 +101,7 @@ Validation, enforced on the server:
 - `name`: 1 to 60 characters after trimming.
 - `color`: one of the seven palette names.
 - `weekdays`: a non-empty set of integers 0 to 6.
-- `today` and `{date}`: real calendar dates in `yyyy-mm-dd`. A completion date may be at most one day after the server's UTC date (time-zone slack) and at most 365 days before `today`.
+- `today` and `{date}`: real calendar dates in `yyyy-mm-dd`. A completion date may be at most one day after the server's UTC date (time-zone slack) and at most 366 days before it (365 days plus the same slack), since `PUT` carries no `today`.
 - At most 50 habits per user, archived ones included.
 - Logging a completion for an archived or unknown habit returns 404.
 
@@ -114,10 +114,10 @@ Errors use a small JSON body with a stable `code` and 4xx status for the caller'
 
 ## Web app (`apps/web`)
 
-- **Habits API client** (`src/habits/api.ts`): an interface plus an implementation that calls `VITE_API_URL` with the Cognito ID token in `Authorization`. Components receive it as a prop, as `AuthApi` does, so tests use a fake. `.env.example` gains `VITE_API_URL`, and the deploy workflow gains the matching repository variable.
-- **Content security policy**: `WebStack`'s `connect-src` must allow the API origin. The origin is known only after `ApiStack` exists, so the plan orders the work to avoid a circular dependency.
+- **Habits API client** (`src/habits/api.ts`): an interface plus an implementation that calls `VITE_API_URL` with the Cognito ID token in `Authorization`. The token comes from `fetchAuthSession()` in `aws-amplify/auth` (a direct dependency of `apps/web`), because `@pkarthikr/auth-client` has no token accessor. Components receive it as a prop, as `AuthApi` does, so tests use a fake. `.env.example` gains `VITE_API_URL`, and the deploy workflow gains the matching repository variable.
+- **Content security policy**: `WebStack`'s `connect-src` must allow the API origin. `WebStack` takes the API endpoint from `ApiStack` as a prop; `ApiStack` takes nothing from `WebStack`, so there is no cycle.
 - **Home**: loads `GET /habits?today=D` and renders `HabitRow`s from the result. Ticking updates the screen immediately and rolls back with an inline error if the request fails. Each row shows its streak. The empty state shows when there are no active habits.
-- **Week grid**: `WeekRow` renders the calendar week, today highlighted, and gains an `upcoming` state for days after today. Upcoming days are faded and cannot be ticked. A scheduled past day without a completion is `open`, an unscheduled day is `rest`.
+- **Week grid**: `WeekRow` renders the calendar week, today highlighted, and gains an `upcoming` state for days after today. Upcoming days are faded and cannot be ticked. A scheduled past day without a completion is `open`, an unscheduled day is `rest`. Every non-upcoming cell on Home is tappable to log or undo that day, which is how a missed day is back-filled; the heatmap on the detail screen is read-only.
 - **New habit** (`/habits/new`, opened from the existing + button): name field, the existing `ColorSwatches`, and seven weekday chips with at least one required.
 - **Habit detail** (`/habits/:id`, opened by tapping a habit): a heatmap component of 53 weeks by 7 days, completed days in the habit's color and all others muted, the current streak, and an Archive action with a confirmation.
 - `mockHabits.ts` is deleted. `Home`, `HabitRow` and their tests move to the real types.
@@ -126,7 +126,9 @@ Errors use a small JSON body with a stable `code` and 4xx status for the caller'
 
 `ApiStack` gains the table, the Lambda (granted read and write on that table only), the HTTP API, the authorizer, and outputs for the API URL. It needs the user pool and client from `AuthStack`, passed in as props. Nothing is deployed by this work. CI continues to run `cdk synth`, and a stack test asserts the table keys, the retain policy, and that no route is left without the authorizer.
 
-Deploying `ApiStack` and the web stack is a separate, manual step through the existing Deploy workflow, and needs the owner's go-ahead for that exact action.
+The Lambda is bundled by `pnpm --filter @trackthat/api build` (esbuild) and read from `services/api/dist`, so CI and the Deploy workflow gain a build step before `cdk`, and `ApiStack` fails with a clear message when the bundle is missing, as `WebStack` does for the web build.
+
+Deploying is a separate, manual step through the existing Deploy workflow, and needs the owner's go-ahead for that exact action. The first rollout takes two Deploy runs, as the auth pool swap did: `VITE_API_URL` does not exist until `TrackThatApi` is deployed, so run one uses a placeholder value, then the variable is set to the `ApiUrl` stack output and run two publishes a web build that points at it.
 
 ## Testing
 
