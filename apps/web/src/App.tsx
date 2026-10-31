@@ -3,6 +3,7 @@ import type { AuthApi } from "@pkarthikr/auth-client";
 import { AuthProvider, Confirm, Register, SignIn, useAuthSession } from "@pkarthikr/auth-react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import { PageShell } from "./design/PageShell";
+import { AddHabit } from "./screens/AddHabit";
 import { Features } from "./screens/Features";
 import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
@@ -79,6 +80,10 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
               <Navigate to="/sign-in" replace />
             )
           }
+        />
+        <Route
+          path="/habits/new"
+          element={signedIn ? <AddHabit /> : <Navigate to="/sign-in" replace />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
