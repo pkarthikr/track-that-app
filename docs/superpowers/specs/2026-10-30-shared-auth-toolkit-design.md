@@ -38,10 +38,13 @@ ideas-toolkit/
 │   ├── ci.yml          typecheck, lint, test, synth on pull requests
 │   └── release.yml     manual (workflow_dispatch): changeset publish to GitHub Packages
 └── packages/
-    ├── auth-client/    @pkarthikr/auth-client
-    ├── auth-react/     @pkarthikr/auth-react
-    └── auth-cdk/       @pkarthikr/auth-cdk
+    └── auth/
+        ├── client/     @pkarthikr/auth-client
+        ├── react/      @pkarthikr/auth-react
+        └── cdk/        @pkarthikr/auth-cdk
 ```
+
+Packages are grouped by area: a folder per area under `packages/`, with the area prefix dropped from the folder names because the parent already carries it (a future `packages/notifications/client/` would publish as `@pkarthikr/notifications-client`). Folders only organize the repo; published package names are unchanged. `pnpm-workspace.yaml` lists both `packages/*/*` and `packages/*`, so a standalone utility with no group can sit directly under `packages/`. An area folder is created only once it has more than one related package; until then a package sits directly under `packages/`.
 
 Tooling (pnpm, TypeScript, ESLint, Prettier, Vitest, Node version) matches TrackThat's so code moves without rewrites. Versions start at `0.x` and move to `1.0.0` once TrackThat runs on them.
 
