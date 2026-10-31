@@ -67,15 +67,27 @@ describe("ApiStack", () => {
   });
 
   it("grants the function access to the table only", () => {
-    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const fn = Object.values(template.findResources("AWS::Lambda::Function"))[0];
+    const roleId = (fn?.Properties.Role as { "Fn::GetAtt": [string, string] })["Fn::GetAtt"][0];
+    const policies = Object.values(template.findResources("AWS::IAM::Policy")).filter((policy) =>
+      (policy.Properties.Roles as unknown[]).some(
+        (role) => JSON.stringify(role) === JSON.stringify({ Ref: roleId }),
+      ),
+    );
     const statements = policies.flatMap(
       (policy) => policy.Properties.PolicyDocument.Statement as { Resource: unknown }[],
     );
     expect(statements.length).toBeGreaterThan(0);
+    const tableArn = { "Fn::GetAtt": [tableId, "Arn"] };
     for (const statement of statements) {
+      // Table ARN only: no wildcard and no index ARNs.
+      const resources = Array.isArray(statement.Resource)
+        ? statement.Resource
+        : [statement.Resource];
+      expect(resources).toEqual([tableArn]);
       const json = JSON.stringify(statement.Resource);
-      expect(json).not.toBe('"*"');
-      expect(json).toContain(tableId);
+      expect(json).not.toContain('"*"');
+      expect(json).not.toContain("/index/*");
     }
   });
 
@@ -94,6 +106,17 @@ describe("ApiStack", () => {
         Audience: [{ "Fn::ImportValue": Match.stringLikeRegexp("PoolClient") }],
       },
     });
+  });
+
+  it("reads the bearer token and trusts the user pool issuer", () => {
+    const [authorizer] = Object.values(template.findResources("AWS::ApiGatewayV2::Authorizer"));
+    expect(authorizer?.Properties.IdentitySource).toEqual(["$request.header.Authorization"]);
+    const jwt = authorizer?.Properties.JwtConfiguration;
+    expect(jwt.Audience).toHaveLength(1);
+    const issuer = JSON.stringify(jwt.Issuer);
+    expect(issuer).toContain("https://cognito-idp.");
+    expect(issuer).toContain("Pool");
+    expect(issuer).toContain("Fn::ImportValue");
   });
 
   it("allows any origin without credentials", () => {
