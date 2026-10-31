@@ -36,6 +36,8 @@ Internal packages are consumed as TypeScript source (`exports` points at `src/in
 pnpm install
 ```
 
+Installing needs a GitHub Packages token with `read:packages`: run `gh auth refresh -s read:packages`, then add `//npm.pkg.github.com/:_authToken=<token>` to `~/.npmrc`. See [Authentication](#authentication) for details.
+
 ## Scripts
 
 Run from the repository root. Each script fans out to every workspace package with `pnpm -r`.
@@ -97,6 +99,8 @@ Security note: the deploy role is effectively administrative, because it can ass
 
 To deploy, open the Actions tab, choose Deploy, and Run workflow on `main`, or run `gh workflow run deploy.yml --ref main`. The workflow runs typecheck, lint, and test before it touches AWS. It refuses to run from any branch other than `main`, and the deploy role's trust policy only accepts `main` as well.
 
+The next deploy replaces the Cognito user pool and needs two Deploy runs; see the [deploy note](#authentication) in Authentication.
+
 Site URL: after a deploy, the `WebUrl` output of `TrackThatWeb` appears in the workflow log and is the address of the site. The URL is unlisted but public. Cognito self sign-up is open, so anyone who finds the URL can register, and Cognito's default email sender allows 50 emails a day.
 
 ## Authentication
@@ -112,7 +116,7 @@ The auth code is shared and no longer lives in this repo. It is in the `ideas-to
 
 Installing them needs a token with package read access. For a local install, run `gh auth refresh -s read:packages`, then add `//npm.pkg.github.com/:_authToken=<token>` to your `~/.npmrc` (the project `.npmrc` only maps the `@pkarthikr` scope to the registry). Never commit a token. CI installs the packages with the built-in `GITHUB_TOKEN` (`packages: read`), so the TrackThat repo must be granted read access on each package (package settings, Manage Actions access).
 
-Deploy note: the first deploy after moving `AuthStack` onto `AuthUserPool` creates a new Cognito user pool and client, because the construct has a new resource path. The old pool is retained and can be deleted by hand. Existing users are discarded (accepted). After that deploy, update the repo variables `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` to the new `UserPoolId` and `UserPoolClientId` outputs and run the Deploy workflow again so the web build uses them.
+Deploy note: the first deploy after moving `AuthStack` onto `AuthUserPool` creates a new Cognito user pool and client, because the construct has a new resource path. The old pool is retained and can be deleted by hand. Existing users are discarded (accepted). After that deploy, update the repo variables `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` to the new `UserPoolId` and `UserPoolClientId` outputs and run the Deploy workflow again so the web build uses them. Between the first deploy and the second, the live site is built with the old variables and points at a client that no longer exists (the deploy deletes it), so sign-in and sign-up fail until the variables are updated and Deploy runs a second time.
 
 Manual smoke test: register, receive the code by email, confirm, sign in, sign out, then sign in again and reload the page to check that the session is kept.
 
