@@ -140,6 +140,36 @@ describe("App", () => {
     expect(document.title).toBe("Track That: New habit");
   });
 
+  it("sends /habits/:id signed out to sign in", async () => {
+    renderApp(fakeAuth(), "/habits/abc");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+  });
+
+  it("shows the detail screen for /habits/:id and still the form for /habits/new", async () => {
+    const habits = fakeHabits();
+    habits.getHabit = vi.fn().mockResolvedValue({
+      id: "abc",
+      name: "Read",
+      color: "teal",
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      archived: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      streak: 2,
+      done: [],
+    });
+    const signedIn = () => fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") });
+    const detail = render(
+      <MemoryRouter initialEntries={["/habits/abc"]}>
+        <App auth={signedIn()} habits={habits} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("heading", { level: 1, name: "Read" })).toBeTruthy();
+    expect(habits.getHabit).toHaveBeenCalledWith("abc", expect.any(String));
+    detail.unmount();
+    renderApp(signedIn(), "/habits/new");
+    expect(await screen.findByRole("button", { name: "Create habit" })).toBeTruthy();
+  });
+
   it("sends / signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
     expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();

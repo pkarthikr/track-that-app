@@ -1,9 +1,10 @@
 import { authApi } from "@pkarthikr/auth-client";
 import type { AuthApi } from "@pkarthikr/auth-client";
 import { AuthProvider, Confirm, Register, SignIn, useAuthSession } from "@pkarthikr/auth-react";
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { PageShell } from "./design/PageShell";
 import type { HabitsApi } from "./habits/api";
+import { HabitDetail } from "./screens/HabitDetail";
 import { Features } from "./screens/Features";
 import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
@@ -22,6 +23,13 @@ function ConfirmRoute({ signedIn }: { signedIn: boolean }) {
       <Confirm email={email} onConfirmed={() => navigate("/sign-in", { replace: true })} />
     </PageShell>
   );
+}
+
+function HabitDetailRoute({ api }: { api: HabitsApi }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  if (!id) return <Navigate to="/home" replace />;
+  return <HabitDetail api={api} id={id} onArchived={() => navigate("/home", { replace: true })} />;
 }
 
 export function App({ auth = authApi, habits }: { auth?: AuthApi; habits: HabitsApi }) {
@@ -95,6 +103,18 @@ export function App({ auth = authApi, habits }: { auth?: AuthApi; habits: Habits
                   onCreated={() => navigate("/home")}
                   onCancel={() => navigate("/home")}
                 />
+              </PageShell>
+            ) : (
+              <Navigate to="/sign-in" replace />
+            )
+          }
+        />
+        <Route
+          path="/habits/:id"
+          element={
+            signedIn ? (
+              <PageShell back={{ to: "/home" }}>
+                <HabitDetailRoute api={habits} />
               </PageShell>
             ) : (
               <Navigate to="/sign-in" replace />
