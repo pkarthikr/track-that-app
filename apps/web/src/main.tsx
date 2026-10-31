@@ -14,15 +14,17 @@ import "./design/base.css";
 
 import { configureAuth } from "@pkarthikr/auth-client";
 import { App } from "./App";
+import { createHabitsApi, idToken, readApiUrl } from "./habits/api";
 
 const root = createRoot(document.getElementById("root")!);
 
 try {
   configureAuth(import.meta.env);
+  const habits = createHabitsApi({ baseUrl: readApiUrl(import.meta.env), getToken: idToken });
   root.render(
     <StrictMode>
       <BrowserRouter>
-        <App />
+        <App habits={habits} />
       </BrowserRouter>
     </StrictMode>,
   );

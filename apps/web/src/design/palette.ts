@@ -1,14 +1,8 @@
-export type HabitColor = "green" | "teal" | "blue" | "violet" | "pink" | "coral" | "orange";
+import { HABIT_COLORS } from "@trackthat/shared";
+import type { HabitColor } from "@trackthat/shared";
 
-export const HABIT_COLORS: readonly HabitColor[] = [
-  "green",
-  "teal",
-  "blue",
-  "violet",
-  "pink",
-  "coral",
-  "orange",
-];
+export { HABIT_COLORS };
+export type { HabitColor };
 
 /** Steps 1-4 per colour; step 4 is "full". Mirrors tokens.css. */
 export const palette: Record<HabitColor, readonly [string, string, string, string]> = {

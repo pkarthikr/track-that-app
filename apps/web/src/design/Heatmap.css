@@ -1,0 +1,22 @@
+.heatmap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.heatmap__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 12px);
+  grid-auto-columns: 12px;
+  gap: 3px;
+  width: max-content;
+}
+
+.heatmap__cell {
+  border-radius: 3px;
+  background: var(--color-empty);
+}
+
+.heatmap__cell[data-done="true"] {
+  background: var(--habit);
+}

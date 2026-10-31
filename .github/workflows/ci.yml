@@ -47,5 +47,8 @@ jobs:
       - name: Build web
         run: pnpm --filter @trackthat/web build
 
+      - name: Build API
+        run: pnpm --filter @trackthat/api build
+
       - name: CDK synth
         run: pnpm --filter @trackthat/infra exec cdk synth

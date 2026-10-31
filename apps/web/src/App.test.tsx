@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { AuthFailure } from "@pkarthikr/auth-client";
 import type { AuthApi } from "@pkarthikr/auth-client";
+import type { HabitsApi } from "./habits/api";
 
 function fakeAuth(overrides: Partial<AuthApi> = {}): AuthApi {
   return {
@@ -16,10 +17,21 @@ function fakeAuth(overrides: Partial<AuthApi> = {}): AuthApi {
   };
 }
 
+function fakeHabits(): HabitsApi {
+  return {
+    listHabits: vi.fn().mockResolvedValue([]),
+    getHabit: vi.fn(),
+    createHabit: vi.fn(),
+    updateHabit: vi.fn(),
+    logCompletion: vi.fn().mockResolvedValue(undefined),
+    undoCompletion: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 function renderApp(auth: AuthApi, path = "/") {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <App auth={auth} />
+      <App auth={auth} habits={fakeHabits()} />
     </MemoryRouter>,
   );
 }
@@ -130,6 +142,47 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
   });
 
+  it("sends /habits/new signed out to sign in", async () => {
+    renderApp(fakeAuth(), "/habits/new");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+  });
+
+  it("shows the add habit screen signed in", async () => {
+    renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/habits/new");
+    expect(await screen.findByLabelText("What do you want to track?")).toBeTruthy();
+    expect(document.title).toBe("Track That: New habit");
+  });
+
+  it("sends /habits/:id signed out to sign in", async () => {
+    renderApp(fakeAuth(), "/habits/abc");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+  });
+
+  it("shows the detail screen for /habits/:id and still the add screen for /habits/new", async () => {
+    const habits = fakeHabits();
+    habits.getHabit = vi.fn().mockResolvedValue({
+      id: "abc",
+      name: "Read",
+      color: "teal",
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      archived: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      streak: 2,
+      done: [],
+    });
+    const signedIn = () => fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") });
+    const detail = render(
+      <MemoryRouter initialEntries={["/habits/abc"]}>
+        <App auth={signedIn()} habits={habits} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("heading", { level: 1, name: "Read" })).toBeTruthy();
+    expect(habits.getHabit).toHaveBeenCalledWith("abc", expect.any(String));
+    detail.unmount();
+    renderApp(signedIn(), "/habits/new");
+    expect(await screen.findByLabelText("What do you want to track?")).toBeTruthy();
+  });
+
   it("sends / signed in to the welcome screen", async () => {
     renderApp(fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") }), "/");
     expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
@@ -185,7 +238,7 @@ describe("App", () => {
     it("keeps a signed-in user off /confirm", async () => {
       render(
         <MemoryRouter initialEntries={[{ pathname: "/confirm", state: { email: "a@x.com" } }]}>
-          <App auth={signedIn()} />
+          <App auth={signedIn()} habits={fakeHabits()} />
         </MemoryRouter>,
       );
       expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
@@ -200,7 +253,7 @@ describe("App", () => {
     render(
       <MemoryRouter initialEntries={["/sign-in"]}>
         <BackProbe />
-        <App auth={fakeAuth()} />
+        <App auth={fakeAuth()} habits={fakeHabits()} />
       </MemoryRouter>,
     );
     await screen.findByRole("heading", { name: "Sign in" });
@@ -237,7 +290,7 @@ describe("App", () => {
     it("confirm: Back and Start over both link to register", async () => {
       render(
         <MemoryRouter initialEntries={[{ pathname: "/confirm", state: { email: "a@x.com" } }]}>
-          <App auth={fakeAuth()} />
+          <App auth={fakeAuth()} habits={fakeHabits()} />
         </MemoryRouter>,
       );
       await screen.findByRole("heading", { name: "Check your email" });

@@ -1,6 +1,6 @@
 # TrackThat
 
-TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. The current state is a skeleton: every package builds, typechecks, lints, and runs tests. The features are a landing page, a features page, and email and password sign-up and sign-in, the last backed by a Cognito user pool defined in CDK. The stacks are deployed from GitHub Actions (see [Deploying](#deploying)), and there are no schemas.
+TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. Every package builds, typechecks, lints, and runs tests. The features are a landing page, a features page, email and password sign-up and sign-in (backed by a Cognito user pool defined in CDK), and habits: create a habit, tick days off on Home, and see a streak and a 365-day heatmap on the habit page. Habits are stored by an API in DynamoDB (see [Data model](#data-model)). The stacks are deployed from GitHub Actions (see [Deploying](#deploying)).
 
 ## Folder Layout
 
@@ -9,11 +9,11 @@ track-that-app/
 ├── apps/
 │   └── web/              # @trackthat/web: Vite + React frontend (design system in src/design; Landing "/" and Features "/features" pages via react-router; auth screens: register, confirm, sign in)
 ├── services/
-│   └── api/              # @trackthat/api: Lambda handler returning { message: "hello" }
+│   └── api/              # @trackthat/api: the habits API, a Lambda behind an HTTP API with a Cognito JWT authorizer, storing data in a DynamoDB single table
 ├── packages/
-│   ├── shared/           # @trackthat/shared: cross-package constants (APP_NAME)
-│   └── core/             # @trackthat/core: domain logic placeholder
-├── infra/                # @trackthat/infra: AWS CDK app with an empty ApiStack, a Cognito AuthStack, a WebStack (TrackThatWeb, static site hosting), and a GithubOidcStack (deploy role)
+│   ├── shared/           # @trackthat/shared: cross-package constants and the habit types and validators
+│   └── core/             # @trackthat/core: date helpers and the streak rule
+├── infra/                # @trackthat/infra: AWS CDK app with four stacks: ApiStack (TrackThatApi: the DynamoDB table, the Lambda and the HTTP API), a Cognito AuthStack (TrackThatAuth), a WebStack (TrackThatWeb, static site hosting), and a GithubOidcStack (deploy role)
 ├── .github/workflows/
 │   ├── ci.yml            # PR and main CI: install, typecheck, lint, test, web build, cdk synth
 │   └── deploy.yml        # manual deploy via GitHub OIDC
@@ -63,7 +63,13 @@ pnpm --filter @trackthat/infra exec cdk synth       # synthesize CloudFormation 
 
 The CDK app includes the web hosting stack, which reads the built web app from `apps/web/dist`. On a fresh clone, run `pnpm --filter @trackthat/web build` before any `cdk` command (`synth`, `diff`, `deploy`, and `bootstrap`, since each loads the app). Without it the command fails with a "Build the web app first" error.
 
+`TrackThatApi` bundles the Lambda from `services/api/dist/handler.js`, so also run `pnpm --filter @trackthat/api build` before any `cdk` command (`pnpm build` does both). Without it the command fails.
+
 Only the Deploy workflow should publish `TrackThatWeb`. A local build bakes in whatever `apps/web/.env.local` contains, so a local `cdk deploy TrackThatWeb` would publish a site with those ids.
+
+## Data model
+
+All data lives in one DynamoDB table (`ApiStack`), keyed by `PK` and `SK`. Every item of a user shares the partition key `USER#<sub>`, where `<sub>` is the Cognito user id. The sort key is `HABIT#<ulid>` for a habit and `COMP#<habitId>#<yyyy-mm-dd>` for one completed day of a habit. The table is retained when the stack is deleted and has point-in-time recovery enabled.
 
 ## CI
 
@@ -78,20 +84,26 @@ One-time setup, done by a person with admin AWS credentials (the workflow does n
 1. Check that the account has no existing GitHub OIDC provider: `aws iam list-open-id-connect-providers`. `GithubOidcStack` creates one, and an account can hold only one for GitHub's URL, so an existing provider makes the first deploy of `GithubOidcStack` fail.
 2. Build the web app first (`pnpm --filter @trackthat/web build`; see [CDK and the web build](#cdk-and-the-web-build)), since the `cdk` commands below load it. Then bootstrap CDK: `pnpm --filter @trackthat/infra exec cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`.
 3. Deploy the role stack by hand (the web app must be built, as in step 2): `pnpm --filter @trackthat/infra exec cdk deploy GithubOidcStack`. Copy the `DeployRoleArn` stack output.
-4. Set four repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
+4. Set five repository variables (variables, not secrets), with `gh variable set` or under Settings → Secrets and variables → Actions → Variables:
    - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` value.
    - `AWS_REGION`: the region you bootstrapped.
    - `VITE_USER_POOL_ID`: the `UserPoolId` output of `TrackThatAuth`.
    - `VITE_USER_POOL_CLIENT_ID`: the `UserPoolClientId` output of `TrackThatAuth`.
+   - `VITE_API_URL`: the `ApiUrl` output of `TrackThatApi`.
 
    ```bash
    gh variable set AWS_DEPLOY_ROLE_ARN --body "<DeployRoleArn>"
    gh variable set AWS_REGION --body "<REGION>"
    gh variable set VITE_USER_POOL_ID --body "<UserPoolId>"
    gh variable set VITE_USER_POOL_CLIENT_ID --body "<UserPoolClientId>"
+   gh variable set VITE_API_URL --body "<ApiUrl>"
    ```
 
-   On a brand-new account the `TrackThatAuth` outputs do not exist yet. Deploy `TrackThatApi` and `TrackThatAuth` first with admin credentials, after building the web app (`pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth`), then set the two `VITE_` variables, then run the workflow. The workflow fails early if either is missing. If the user pool is ever recreated, update both variables to the new values.
+   On a brand-new account the `TrackThatAuth` outputs do not exist yet. Deploy `TrackThatApi` and `TrackThatAuth` first with admin credentials, after building the web app (`pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth`), then set the `VITE_` variables, then run the workflow. The workflow fails early if any of the three is missing. If the user pool is ever recreated, update both pool variables to the new values.
+
+   First rollout of the API: `ApiUrl` does not exist until `TrackThatApi` is deployed, but the workflow needs `VITE_API_URL` to be set. So the first Deploy takes two runs. Set `VITE_API_URL` to a placeholder such as `https://placeholder.invalid` and run Deploy: that run deploys `TrackThatApi` and publishes a web build that points at the placeholder, so the habit screens cannot load yet. Then set `VITE_API_URL` to the `ApiUrl` output of `TrackThatApi` and run Deploy again.
+
+   Stack imports: `TrackThatApi` imports the Cognito user pool and client from `TrackThatAuth`, and `TrackThatWeb` imports the API endpoint from `TrackThatApi`. Replacing the pool, the client or the HTTP API therefore needs a two-step deploy, because CloudFormation will not change an export that another stack still imports.
 
 Use the same AWS account and region throughout: the bootstrap, the `GithubOidcStack` deploy, the `AWS_REGION` variable, and every later workflow run. Deploying to a region that was not bootstrapped fails.
 

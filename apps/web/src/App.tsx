@@ -1,9 +1,11 @@
 import { authApi } from "@pkarthikr/auth-client";
 import type { AuthApi } from "@pkarthikr/auth-client";
 import { AuthProvider, Confirm, Register, SignIn, useAuthSession } from "@pkarthikr/auth-react";
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { PageShell } from "./design/PageShell";
+import type { HabitsApi } from "./habits/api";
 import { AddHabit } from "./screens/AddHabit";
+import { HabitDetail } from "./screens/HabitDetail";
 import { Features } from "./screens/Features";
 import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
@@ -23,7 +25,14 @@ function ConfirmRoute({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-export function App({ auth = authApi }: { auth?: AuthApi }) {
+function HabitDetailRoute({ api }: { api: HabitsApi }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  if (!id) return <Navigate to="/home" replace />;
+  return <HabitDetail api={api} id={id} onArchived={() => navigate("/home", { replace: true })} />;
+}
+
+export function App({ auth = authApi, habits }: { auth?: AuthApi; habits: HabitsApi }) {
   const { session, signedIn: markSignedIn, signOut } = useAuthSession(auth);
   const navigate = useNavigate();
 
@@ -72,6 +81,8 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
             session.status === "in" ? (
               <Home
                 email={session.email}
+                api={habits}
+                onOpenHabit={(id) => navigate(`/habits/${id}`)}
                 onSignOut={() => {
                   void signOut().then(() => navigate("/sign-in", { replace: true }));
                 }}
@@ -83,7 +94,19 @@ export function App({ auth = authApi }: { auth?: AuthApi }) {
         />
         <Route
           path="/habits/new"
-          element={signedIn ? <AddHabit /> : <Navigate to="/sign-in" replace />}
+          element={signedIn ? <AddHabit api={habits} /> : <Navigate to="/sign-in" replace />}
+        />
+        <Route
+          path="/habits/:id"
+          element={
+            signedIn ? (
+              <PageShell back={{ to: "/home" }}>
+                <HabitDetailRoute api={habits} />
+              </PageShell>
+            ) : (
+              <Navigate to="/sign-in" replace />
+            )
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
