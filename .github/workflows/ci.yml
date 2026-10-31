@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 permissions:
+  packages: read
   contents: read
 
 concurrency:
@@ -26,8 +27,12 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: "@pkarthikr"
 
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck

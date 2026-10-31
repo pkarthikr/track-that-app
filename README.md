@@ -108,6 +108,12 @@ The user pool is created by the Deploy workflow (see [Deploying](#deploying)). T
 1. Copy `apps/web/.env.example` to `apps/web/.env.local`.
 2. Set `VITE_USER_POOL_ID` to the `UserPoolId` stack output and `VITE_USER_POOL_CLIENT_ID` to the `UserPoolClientId` stack output.
 
+The auth code is shared and no longer lives in this repo. It is in the `ideas-toolkit` repo as three private packages on GitHub Packages: `@pkarthikr/auth-client`, `@pkarthikr/auth-react` (both used by `apps/web`) and `@pkarthikr/auth-cdk` (the `AuthUserPool` construct used by `AuthStack`).
+
+Installing them needs a token with package read access. For a local install, run `gh auth refresh -s read:packages`, then add `//npm.pkg.github.com/:_authToken=<token>` to your `~/.npmrc` (the project `.npmrc` only maps the `@pkarthikr` scope to the registry). Never commit a token. CI installs the packages with the built-in `GITHUB_TOKEN` (`packages: read`), so the TrackThat repo must be granted read access on each package (package settings, Manage Actions access).
+
+Deploy note: the first deploy after moving `AuthStack` onto `AuthUserPool` creates a new Cognito user pool and client, because the construct has a new resource path. The old pool is retained and can be deleted by hand. Existing users are discarded (accepted). After that deploy, update the repo variables `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` to the new `UserPoolId` and `UserPoolClientId` outputs and run the Deploy workflow again so the web build uses them.
+
 Manual smoke test: register, receive the code by email, confirm, sign in, sign out, then sign in again and reload the page to check that the session is kept.
 
 ## Notes and Decisions

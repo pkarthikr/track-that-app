@@ -10,3 +10,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - "@pkarthikr/auth-client@0.1.0"
   - "@pkarthikr/auth-react@0.1.0"
+  - "@pkarthikr/auth-cdk@0.1.0"

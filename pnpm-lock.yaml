@@ -248,6 +248,9 @@ importers:
 
   infra:
     dependencies:
+      '@pkarthikr/auth-cdk':
+        specifier: ^0.1.0
+        version: 0.1.0(aws-cdk-lib@2.273.0(constructs@10.8.1))(constructs@10.8.1)
       aws-cdk-lib:
         specifier: ^2.273.0
         version: 2.273.0(constructs@10.8.1)
@@ -767,6 +770,12 @@ packages:
 
   '@oxc-project/types@0.153.0':
     resolution: {integrity: sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw==}
+
+  '@pkarthikr/auth-cdk@0.1.0':
+    resolution: {integrity: sha512-HlbnghJ9a1J29/3XhscUTdvoa1uJmsSsGpjuZZqBIxyjEi86twfZzUoLe/dRBh4qzfFTIEf9phJc0wpLehZKIA==, tarball: https://npm.pkg.github.com/download/@pkarthikr/auth-cdk/0.1.0/6a5aa5d85f385d4b7946b38302c0507c294c9b5a}
+    peerDependencies:
+      aws-cdk-lib: ^2.273.0
+      constructs: ^10.8.1
 
   '@pkarthikr/auth-client@0.1.0':
     resolution: {integrity: sha512-sy4YE1rsZu1fo0o2ATmeJRfGAUKIcIK5zdMocqsp2J4MZxMq37PBHN0TO3mZ3gekxi1UOe3M/pbwjlOLBmlRLw==, tarball: https://npm.pkg.github.com/download/@pkarthikr/auth-client/0.1.0/83c20dadaa0d153f5dbf79f4b71531fc5514185e}
@@ -2386,6 +2395,11 @@ snapshots:
   '@nodable/entities@3.1.0': {}
 
   '@oxc-project/types@0.153.0': {}
+
+  '@pkarthikr/auth-cdk@0.1.0(aws-cdk-lib@2.273.0(constructs@10.8.1))(constructs@10.8.1)':
+    dependencies:
+      aws-cdk-lib: 2.273.0(constructs@10.8.1)
+      constructs: 10.8.1
 
   '@pkarthikr/auth-client@0.1.0(aws-amplify@6.22.2)':
     dependencies:

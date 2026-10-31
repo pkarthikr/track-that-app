@@ -1,5 +1,6 @@
-import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
-import { AccountRecovery, Mfa, UserPool, type UserPoolClient } from "aws-cdk-lib/aws-cognito";
+import { AuthUserPool } from "@pkarthikr/auth-cdk";
+import { CfnOutput, Stack, type StackProps } from "aws-cdk-lib";
+import type { UserPool, UserPoolClient } from "aws-cdk-lib/aws-cognito";
 import type { Construct } from "constructs";
 
 export class AuthStack extends Stack {
@@ -9,31 +10,9 @@ export class AuthStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    this.userPool = new UserPool(this, "UserPool", {
-      signInAliases: { email: true },
-      signInCaseSensitive: false,
-      selfSignUpEnabled: true,
-      autoVerify: { email: true },
-      passwordPolicy: {
-        minLength: 8,
-        requireLowercase: true,
-        requireUppercase: true,
-        requireDigits: true,
-        requireSymbols: true,
-      },
-      mfa: Mfa.OFF,
-      accountRecovery: AccountRecovery.NONE,
-    });
-
-    this.userPoolClient = this.userPool.addClient("WebClient", {
-      generateSecret: false,
-      disableOAuth: true,
-      authFlows: { userSrp: true },
-      enableTokenRevocation: true,
-      preventUserExistenceErrors: true,
-      accessTokenValidity: Duration.hours(1),
-      idTokenValidity: Duration.hours(1),
-    });
+    const auth = new AuthUserPool(this, "Auth");
+    this.userPool = auth.userPool;
+    this.userPoolClient = auth.userPoolClient;
 
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new CfnOutput(this, "UserPoolClientId", {
