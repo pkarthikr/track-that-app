@@ -52,7 +52,7 @@ Tooling (pnpm, TypeScript, ESLint, Prettier, Vitest, Node version) matches Track
 
 ### `@pkarthikr/auth-client`
 
-Moved from `apps/web/src/auth/` with its tests: the `AuthApi` interface, `authApi` (Amplify implementation), `AuthFailure` and `AuthErrorCode`, `configureAuth` and `readAuthConfig`, `messageFor`, and the validation helpers. No UI. `aws-amplify` is a peer dependency. Behavior is unchanged, including mapping unknown-user and wrong-password to the same `invalid-credentials` code.
+Moved from `apps/web/src/auth/` with its tests: the `AuthApi` interface, `authApi` (Amplify implementation), `AuthFailure` and `AuthErrorCode`, `configureAuth` and `readAuthConfig`, `messageFor`, and the validation helpers. No UI. `aws-amplify` is a peer dependency. Behavior is unchanged, including mapping unknown-user and wrong-password to the same `invalid-credentials` code. One deliberate API change: `configureAuth(env)` takes the env record as a required argument instead of defaulting to `import.meta.env`, because compiled library code cannot rely on the consumer's bundler to substitute `import.meta.env`. The app passes `import.meta.env` itself.
 
 ### `@pkarthikr/auth-react`
 
@@ -66,7 +66,7 @@ Exports:
 
 Internals (not exported): `useFormSubmit`, `usePageTitle`, `TextField`, `PasswordField`, `Button` and `FormCard`, with `auth-` class names so they cannot collide with an app's styles.
 
-Theming: one plain stylesheet, `theme.css`, shipped by the package and imported by the app. It reads `--auth-brand`, `--auth-brand-tint`, `--auth-ink`, `--auth-muted`, `--auth-border`, `--auth-surface`, `--auth-error`, `--auth-radius` and `--auth-font`, each with a neutral fallback. Fonts are not shipped; the screens inherit the app's. TrackThat maps the variables once (for example `--auth-brand: var(--color-brand)`). The stylesheet is plain CSS with no inline `style=`, because TrackThat's CSP is `style-src 'self'`; the Confirm icon's stroke color comes from a CSS class, not an inline value.
+Theming: one plain stylesheet, `theme.css`, shipped by the package and imported by the app. It reads `--auth-brand`, `--auth-brand-tint`, `--auth-ink`, `--auth-muted`, `--auth-border`, `--auth-input-border`, `--auth-disabled-bg`, `--auth-surface`, `--auth-error`, `--auth-radius`, `--auth-radius-card`, `--auth-font` and `--auth-font-display`, each with a neutral fallback written inline as `var(--auth-x, fallback)`. Fonts are not shipped; the screens inherit the app's. TrackThat maps the variables once (for example `--auth-brand: var(--color-brand)`). The stylesheet is plain CSS with no inline `style=`, because TrackThat's CSP is `style-src 'self'`; the Confirm icon's stroke color comes from a CSS class, not an inline value.
 
 ### `@pkarthikr/auth-cdk`
 
@@ -86,6 +86,10 @@ The existing TrackThat tests for the screens and `App` should pass with only imp
 ### Deploy consequence
 
 `AuthUserPool` is a new construct path, so the first deploy creates a new user pool and client with new ids and leaves the old pool in place (retain). This is accepted: the old users are discarded. After that deploy, the repo variables `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` must be updated to the new ids and the web app redeployed, and the old pool can be deleted by hand. Before deploying, `cdk diff` is reviewed and the exact commands are shown to the owner; none of this runs without their go-ahead for that step.
+
+## Build and publishing
+
+Each package is built with `tsup` into an ES module bundle plus type declarations in `dist/` (`auth-react` also copies `theme.css` there); TrackThat's `infra` runs through `tsx` and the web app through Vite, so both consume the bundles. In the monorepo each package's `exports` point at `src/` so packages and tests resolve each other without a build; `publishConfig.exports` overrides them to `dist/` at publish time. A check script packs every package and fails if a published manifest still contains a `workspace:` specifier or a `src/` path. Consumers need `packages: read` permission in their workflows to install from GitHub Packages.
 
 ## Releases
 
