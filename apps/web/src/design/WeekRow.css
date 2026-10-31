@@ -34,3 +34,20 @@
   border: 1.5px dashed #c9d2cb;
   color: var(--color-muted);
 }
+
+.week-row__cell--upcoming {
+  background: var(--color-empty);
+  color: var(--color-muted);
+  opacity: 0.45;
+}
+
+button.week-row__cell {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+button.week-row__cell--rest {
+  border: 1.5px dashed #c9d2cb;
+  background: transparent;
+}

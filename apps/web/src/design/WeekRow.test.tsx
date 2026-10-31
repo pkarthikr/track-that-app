@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { WeekRow, type WeekDays } from "./WeekRow";
 
 const days: WeekDays = ["open", "done", "open", "done", "open", "done", "done"];
@@ -76,5 +76,46 @@ describe("WeekRow", () => {
         .map((c) => c.textContent)
         .join(""),
     ).toBe("SMTWTFS");
+  });
+
+  it("labels today by todayIndex and later days as upcoming", () => {
+    render(
+      <WeekRow
+        days={["done", "open", "open", "open", "open", "open", "upcoming"]}
+        todayIndex={5}
+        color="blue"
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Friday (today): not done" })).toBeTruthy();
+    const sat = screen.getByRole("img", { name: "Saturday: upcoming" });
+    expect(sat.classList.contains("week-row__cell--upcoming")).toBe(true);
+  });
+
+  describe("with onToggleDay", () => {
+    const toggleDays: WeekDays = ["rest", "done", "open", "open", "open", "open", "upcoming"];
+
+    it("renders non-upcoming cells as buttons and calls back with the index", () => {
+      const onToggleDay = vi.fn();
+      render(<WeekRow days={toggleDays} todayIndex={5} color="teal" onToggleDay={onToggleDay} />);
+      fireEvent.click(screen.getByRole("button", { name: "Tuesday: not done" }));
+      expect(onToggleDay).toHaveBeenCalledWith(2);
+      expect(screen.getAllByRole("button")).toHaveLength(6);
+    });
+
+    it("never renders upcoming cells as buttons", () => {
+      render(<WeekRow days={toggleDays} todayIndex={5} color="teal" onToggleDay={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "Saturday: upcoming" })).toBeNull();
+      expect(screen.getByRole("img", { name: "Saturday: upcoming" })).toBeTruthy();
+    });
+
+    it("sets aria-pressed from the done state", () => {
+      render(<WeekRow days={toggleDays} todayIndex={5} color="teal" onToggleDay={vi.fn()} />);
+      expect(
+        screen.getByRole("button", { name: "Monday: done" }).getAttribute("aria-pressed"),
+      ).toBe("true");
+      expect(
+        screen.getByRole("button", { name: "Tuesday: not done" }).getAttribute("aria-pressed"),
+      ).toBe("false");
+    });
   });
 });
