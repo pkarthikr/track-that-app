@@ -251,4 +251,16 @@ describe("AddHabit", () => {
     expect(api.createHabit).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("sends no second request once the Added dialog is showing", async () => {
+    const api = renderAddHabit();
+    fillIn("Gym", "Monday");
+    fireEvent.click(addButton());
+    await screen.findByRole("dialog", { name: "Added" });
+
+    fireEvent.submit(nameInput().closest("form") as HTMLFormElement);
+    fireEvent.click(addButton());
+    await act(async () => {});
+    expect(api.createHabit).toHaveBeenCalledTimes(1);
+  });
 });

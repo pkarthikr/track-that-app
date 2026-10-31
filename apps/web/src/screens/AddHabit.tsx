@@ -69,7 +69,7 @@ export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!canSave || inFlight.current) return;
+    if (!canSave || added || inFlight.current) return;
     setError(null);
     const parsed = parseNewHabit({ name, color, weekdays: [...days].sort((a, b) => a - b) });
     if (!parsed.ok) {
@@ -152,7 +152,7 @@ export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi;
           )}
 
           <div className="add-habit__submit">
-            <Button type="submit" disabled={!canSave || saving}>
+            <Button type="submit" disabled={!canSave || saving || added}>
               Add habit
             </Button>
           </div>
