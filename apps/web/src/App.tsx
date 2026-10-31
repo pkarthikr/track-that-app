@@ -1,108 +1,87 @@
-import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
-import type { AuthApi } from "./auth/auth";
-import { authApi } from "./auth/auth";
-import { Confirm } from "./screens/Confirm";
+import { authApi } from "@pkarthikr/auth-client";
+import type { AuthApi } from "@pkarthikr/auth-client";
+import { AuthProvider, Confirm, Register, SignIn, useAuthSession } from "@pkarthikr/auth-react";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { PageShell } from "./design/PageShell";
 import { Features } from "./screens/Features";
 import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
-import { Register } from "./screens/Register";
-import { SignIn } from "./screens/SignIn";
 
-type Session = { status: "loading" } | { status: "in"; email: string } | { status: "out" };
+const AUTH_PATHS = { signIn: "/sign-in", register: "/register", confirm: "/confirm" };
 
-function ConfirmRoute({ auth, signedIn }: { auth: AuthApi; signedIn: boolean }) {
+function ConfirmRoute({ signedIn }: { signedIn: boolean }) {
   const navigate = useNavigate();
   const state = useLocation().state as { email?: unknown } | null;
   const email = typeof state?.email === "string" ? state.email : null;
   if (signedIn) return <Navigate to="/home" replace />;
   if (!email) return <Navigate to="/register" replace />;
   return (
-    <Confirm
-      auth={auth}
-      email={email}
-      onConfirmed={() => navigate("/sign-in", { replace: true })}
-    />
+    <PageShell back={{ to: "/register" }}>
+      <Confirm email={email} onConfirmed={() => navigate("/sign-in", { replace: true })} />
+    </PageShell>
   );
 }
 
 export function App({ auth = authApi }: { auth?: AuthApi }) {
-  const [session, setSession] = useState<Session>({ status: "loading" });
+  const { session, signedIn: markSignedIn, signOut } = useAuthSession(auth);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    let cancelled = false;
-    auth
-      .getCurrentUser()
-      .then((email) => {
-        if (cancelled) return;
-        setSession(email ? { status: "in", email } : { status: "out" });
-      })
-      .catch(() => {
-        if (!cancelled) setSession({ status: "out" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [auth]);
 
   if (session.status === "loading") return <p>Loading…</p>;
   const signedIn = session.status === "in";
 
   return (
-    <Routes>
-      <Route path="/" element={signedIn ? <Navigate to="/home" replace /> : <Landing />} />
-      <Route path="/features" element={<Features />} />
-      <Route
-        path="/sign-in"
-        element={
-          signedIn ? (
-            <Navigate to="/home" replace />
-          ) : (
-            <SignIn
-              auth={auth}
-              onSignedIn={(email) => {
-                setSession({ status: "in", email });
-                navigate("/home", { replace: true });
-              }}
-              onNeedsConfirmation={(email) => navigate("/confirm", { state: { email } })}
-            />
-          )
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          signedIn ? (
-            <Navigate to="/home" replace />
-          ) : (
-            <Register
-              auth={auth}
-              onRegistered={(email) => navigate("/confirm", { state: { email } })}
-            />
-          )
-        }
-      />
-      <Route path="/confirm" element={<ConfirmRoute auth={auth} signedIn={signedIn} />} />
-      <Route
-        path="/home"
-        element={
-          session.status === "in" ? (
-            <Home
-              email={session.email}
-              onSignOut={() => {
-                void auth.signOut().then(() => {
-                  setSession({ status: "out" });
-                  navigate("/sign-in", { replace: true });
-                });
-              }}
-            />
-          ) : (
-            <Navigate to="/sign-in" replace />
-          )
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <AuthProvider auth={auth} appName="Track That" paths={AUTH_PATHS} LinkComponent={Link}>
+      <Routes>
+        <Route path="/" element={signedIn ? <Navigate to="/home" replace /> : <Landing />} />
+        <Route path="/features" element={<Features />} />
+        <Route
+          path="/sign-in"
+          element={
+            signedIn ? (
+              <Navigate to="/home" replace />
+            ) : (
+              <PageShell action={{ label: "Create account", to: "/register" }}>
+                <SignIn
+                  onSignedIn={(email) => {
+                    markSignedIn(email);
+                    navigate("/home", { replace: true });
+                  }}
+                  onNeedsConfirmation={(email) => navigate("/confirm", { state: { email } })}
+                />
+              </PageShell>
+            )
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            signedIn ? (
+              <Navigate to="/home" replace />
+            ) : (
+              <PageShell action={{ label: "Sign in", to: "/sign-in" }}>
+                <Register onRegistered={(email) => navigate("/confirm", { state: { email } })} />
+              </PageShell>
+            )
+          }
+        />
+        <Route path="/confirm" element={<ConfirmRoute signedIn={signedIn} />} />
+        <Route
+          path="/home"
+          element={
+            session.status === "in" ? (
+              <Home
+                email={session.email}
+                onSignOut={() => {
+                  void signOut().then(() => navigate("/sign-in", { replace: true }));
+                }}
+              />
+            ) : (
+              <Navigate to="/sign-in" replace />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }

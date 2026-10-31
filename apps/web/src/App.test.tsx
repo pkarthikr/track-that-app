@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import type { AuthApi } from "./auth/auth";
-import { AuthFailure } from "./auth/auth";
+import { AuthFailure } from "@pkarthikr/auth-client";
+import type { AuthApi } from "@pkarthikr/auth-client";
 
 function fakeAuth(overrides: Partial<AuthApi> = {}): AuthApi {
   return {
@@ -197,6 +197,43 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Home" });
     fireEvent.click(screen.getByRole("button", { name: "probe-back" }));
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull());
+  });
+
+  describe("page chrome around the shared auth screens", () => {
+    it("sign-in: header links to register and below-card link goes there too", async () => {
+      renderApp(fakeAuth(), "/sign-in");
+      await screen.findByRole("heading", { name: "Sign in" });
+      expect(screen.getByRole("link", { name: "Create account" }).getAttribute("href")).toBe(
+        "/register",
+      );
+      expect(screen.getByRole("link", { name: "Create an account" }).getAttribute("href")).toBe(
+        "/register",
+      );
+      expect(document.title).toBe("Track That: Sign in");
+    });
+
+    it("register: header and below-card links go to sign in", async () => {
+      renderApp(fakeAuth(), "/register");
+      await screen.findByRole("heading", { name: "Create your account" });
+      const links = screen.getAllByRole("link", { name: "Sign in" });
+      expect(links.length).toBeGreaterThanOrEqual(2);
+      for (const link of links) expect(link.getAttribute("href")).toBe("/sign-in");
+      expect(document.title).toBe("Track That: Create account");
+    });
+
+    it("confirm: Back and Start over both link to register", async () => {
+      render(
+        <MemoryRouter initialEntries={[{ pathname: "/confirm", state: { email: "a@x.com" } }]}>
+          <App auth={fakeAuth()} />
+        </MemoryRouter>,
+      );
+      await screen.findByRole("heading", { name: "Check your email" });
+      expect(screen.getByRole("link", { name: "Back" }).getAttribute("href")).toBe("/register");
+      expect(
+        screen.getByRole("link", { name: "Wrong email? Start over" }).getAttribute("href"),
+      ).toBe("/register");
+      expect(document.title).toBe("Track That: Confirm code");
+    });
   });
 
   it("falls back to signed out when the session check rejects", async () => {

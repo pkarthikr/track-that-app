@@ -48,6 +48,20 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-pill: 999px;
+
+  --auth-brand: var(--color-brand);
+  --auth-brand-tint: var(--color-brand-tint);
+  --auth-ink: var(--color-ink);
+  --auth-muted: var(--color-muted);
+  --auth-border: var(--color-border);
+  --auth-input-border: var(--color-ghost-border);
+  --auth-disabled-bg: var(--color-empty);
+  --auth-surface: var(--color-surface);
+  --auth-error: var(--color-error);
+  --auth-radius: var(--radius-md);
+  --auth-radius-card: var(--radius-xl);
+  --auth-font: var(--font-body);
+  --auth-font-display: var(--font-display);
 }
 
 .habit-color--green {

@@ -11,6 +11,7 @@
     "synth": "cdk synth"
   },
   "dependencies": {
+    "@pkarthikr/auth-cdk": "^0.1.0",
     "aws-cdk-lib": "^2.273.0",
     "constructs": "^10.8.1"
   },

@@ -6,3 +6,10 @@ packages:
 
 allowBuilds:
   esbuild: true
+
+# Our own freshly published packages; remove these entries once the versions
+# pass the minimum release age.
+minimumReleaseAgeExclude:
+  - "@pkarthikr/auth-client@0.1.0"
+  - "@pkarthikr/auth-react@0.1.0"
+  - "@pkarthikr/auth-cdk@0.1.0"
