@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { DateString } from "@trackthat/shared";
 import { Heatmap } from "./Heatmap";
 
@@ -53,5 +53,38 @@ describe("Heatmap", () => {
     expect(grid.children).toHaveLength(5 + 365);
     expect(grid.children[5]?.getAttribute("data-date")).toBe("2025-10-31");
     expect(grid.children[4]?.hasAttribute("data-date")).toBe(false);
+  });
+
+  it("has no leading spacers when the first day is a Sunday", () => {
+    // 2026-10-25 minus 364 days is Sunday 2025-10-26.
+    const { container } = render(<Heatmap color="green" done={[]} today={d("2026-10-25")} />);
+    const grid = container.querySelector(".heatmap__grid")!;
+    expect(grid.querySelectorAll(".heatmap__spacer")).toHaveLength(0);
+    expect(grid.children[0]?.getAttribute("data-date")).toBe("2025-10-26");
+    expect(cells(container)).toHaveLength(365);
+  });
+
+  it("is a focusable, labelled scroll region", () => {
+    render(<Heatmap color="green" done={[]} today={TODAY} />);
+    const region = screen.getByRole("region", { name: "Completion history, scrollable" });
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(region.contains(screen.getByRole("img"))).toBe(true);
+  });
+
+  describe("scroll position", () => {
+    afterEach(() => {
+      // @ts-expect-error remove the test-only instance override
+      delete HTMLElement.prototype.scrollWidth;
+    });
+
+    it("starts scrolled to the newest weeks", () => {
+      Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+        configurable: true,
+        get: () => 640,
+      });
+      render(<Heatmap color="green" done={[]} today={TODAY} />);
+      const region = screen.getByRole("region", { name: "Completion history, scrollable" });
+      expect(region.scrollLeft).toBe(640);
+    });
   });
 });

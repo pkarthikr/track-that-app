@@ -1,5 +1,6 @@
 import { addDays, weekdayOf } from "@trackthat/core";
 import type { DateString, HabitColor } from "@trackthat/shared";
+import { useEffect, useRef } from "react";
 import "./Heatmap.css";
 
 const DAYS = 365;
@@ -25,9 +26,22 @@ export function Heatmap({
   const count = completed.size;
   const label = `${count} ${count === 1 ? "completion" : "completions"} in the last 365 days`;
   const spacers = weekdayOf(first);
+  const scroller = useRef<HTMLDivElement>(null);
+
+  // The newest weeks are on the right; start there.
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [today]);
 
   return (
-    <div className="heatmap">
+    <div
+      ref={scroller}
+      className="heatmap"
+      role="region"
+      tabIndex={0}
+      aria-label="Completion history, scrollable"
+    >
       <div role="img" aria-label={label} className="heatmap__grid">
         {Array.from({ length: spacers }, (_, i) => (
           <span key={`spacer-${i}`} className="heatmap__spacer" />
