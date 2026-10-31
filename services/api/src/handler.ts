@@ -30,24 +30,35 @@ export function createHandler({ store, now }: HandlerDeps): Handler {
       if (error instanceof HttpError) {
         return errorResponse(error.code, error.message);
       }
-      // Log only the error's name and message: never request data or stacks.
-      const name = error instanceof Error ? error.name : "NonError";
-      const message = error instanceof Error ? error.message : "unknown";
-      console.error(JSON.stringify({ name, message }));
-      return errorResponse("internal", "internal error");
+      return internalError(error);
     }
   };
+}
+
+function internalError(error: unknown) {
+  // Log only the error's name and message: never request data or stacks.
+  const name = error instanceof Error ? error.name : "NonError";
+  const message = error instanceof Error ? error.message : "unknown";
+  console.error(JSON.stringify({ name, message }));
+  return errorResponse("internal", "internal error");
 }
 
 let lazyHandler: Handler | undefined;
 
 export const handler: Handler = (event) => {
-  lazyHandler ??= createHandler({
-    store: createDynamoStore(
-      DynamoDBDocumentClient.from(new DynamoDBClient({})),
-      process.env.TABLE_NAME ?? "",
-    ),
-    now: () => new Date(),
-  });
-  return lazyHandler(event);
+  try {
+    if (lazyHandler === undefined) {
+      const tableName = process.env.TABLE_NAME;
+      if (tableName === undefined || tableName === "") {
+        throw new Error("TABLE_NAME environment variable is not set");
+      }
+      lazyHandler = createHandler({
+        store: createDynamoStore(DynamoDBDocumentClient.from(new DynamoDBClient({})), tableName),
+        now: () => new Date(),
+      });
+    }
+    return lazyHandler(event);
+  } catch (error) {
+    return Promise.resolve(internalError(error));
+  }
 };

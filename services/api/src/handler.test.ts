@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createHandler } from "./handler";
+import { createHandler, handler } from "./handler";
 import { createMemoryStore } from "./memoryStore";
 import type { HabitRecord, HabitStore } from "./store";
 
@@ -59,6 +59,29 @@ async function call(store: HabitStore, options: EventOptions) {
     json: JSON.parse(result.body ?? "null") as Record<string, unknown>,
   };
 }
+
+describe("lazy handler", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("reports a missing TABLE_NAME as a normal internal error", async () => {
+    vi.stubEnv("TABLE_NAME", "");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await handler(makeEvent({ routeKey: "GET /habits" }));
+
+    if (typeof result === "string") throw new Error("expected a structured result");
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body ?? "null")).toEqual({
+      code: "internal",
+      message: "internal error",
+    });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(String(log.mock.calls[0]?.[0])).toContain("TABLE_NAME");
+  });
+});
 
 describe("handler", () => {
   it("rejects a request with no sub claim", async () => {
