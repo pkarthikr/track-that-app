@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { HabitSummary } from "@trackthat/shared";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { HabitsApi } from "../habits/api";
 import { Home } from "./Home";
@@ -32,8 +33,12 @@ function fakeApi(habits: HabitSummary[] = [habit()]): HabitsApi {
 }
 
 function renderHome(api: HabitsApi, props: Partial<Parameters<typeof Home>[0]> = {}) {
-  const handlers = { onSignOut: vi.fn(), onNewHabit: vi.fn(), onOpenHabit: vi.fn() };
-  render(<Home email="a@b.com" api={api} today={TODAY} {...handlers} {...props} />);
+  const handlers = { onSignOut: vi.fn(), onOpenHabit: vi.fn() };
+  render(
+    <MemoryRouter>
+      <Home email="a@b.com" api={api} today={TODAY} {...handlers} {...props} />
+    </MemoryRouter>,
+  );
   return handlers;
 }
 
@@ -94,7 +99,7 @@ describe("Home", () => {
       renderHome(fakeApi([]));
       await screen.findByText("No habits yet");
       expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "New habit" })).toBeTruthy();
+      expect(screen.getByRole("link", { name: "New habit" })).toBeTruthy();
       openMenu();
       expect(screen.getByRole("dialog", { name: "Menu" })).toBeTruthy();
     });
@@ -103,7 +108,7 @@ describe("Home", () => {
       renderHome(fakeApi([]));
       await screen.findByText("No habits yet");
       expect(
-        screen.getByRole("button", { name: "New habit" }).classList.contains("home__add--pulse"),
+        screen.getByRole("link", { name: "New habit" }).classList.contains("home__add--pulse"),
       ).toBe(true);
     });
   });
@@ -113,7 +118,7 @@ describe("Home", () => {
     await screen.findByText("Read 20 pages");
     expect(screen.queryByText("No habits yet")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "New habit" }).classList.contains("home__add--pulse"),
+      screen.getByRole("link", { name: "New habit" }).classList.contains("home__add--pulse"),
     ).toBe(false);
   });
 
@@ -320,11 +325,12 @@ describe("Home", () => {
     });
   });
 
-  it("calls onNewHabit from the + button", async () => {
-    const { onNewHabit } = renderHome(fakeApi());
+  it("links the + button to the add-habit screen", async () => {
+    renderHome(fakeApi());
     await screen.findByText("Read 20 pages");
-    fireEvent.click(screen.getByRole("button", { name: "New habit" }));
-    expect(onNewHabit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("link", { name: "New habit" }).getAttribute("href")).toBe(
+      "/habits/new",
+    );
   });
 
   it("calls onOpenHabit with the id from a habit name", async () => {

@@ -4,11 +4,11 @@ import { AuthProvider, Confirm, Register, SignIn, useAuthSession } from "@pkarth
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { PageShell } from "./design/PageShell";
 import type { HabitsApi } from "./habits/api";
+import { AddHabit } from "./screens/AddHabit";
 import { HabitDetail } from "./screens/HabitDetail";
 import { Features } from "./screens/Features";
 import { Home } from "./screens/Home";
 import { Landing } from "./screens/Landing";
-import { NewHabit } from "./screens/NewHabit";
 
 const AUTH_PATHS = { signIn: "/sign-in", register: "/register", confirm: "/confirm" };
 
@@ -82,7 +82,6 @@ export function App({ auth = authApi, habits }: { auth?: AuthApi; habits: Habits
               <Home
                 email={session.email}
                 api={habits}
-                onNewHabit={() => navigate("/habits/new")}
                 onOpenHabit={(id) => navigate(`/habits/${id}`)}
                 onSignOut={() => {
                   void signOut().then(() => navigate("/sign-in", { replace: true }));
@@ -95,19 +94,7 @@ export function App({ auth = authApi, habits }: { auth?: AuthApi; habits: Habits
         />
         <Route
           path="/habits/new"
-          element={
-            signedIn ? (
-              <PageShell back={{ to: "/home" }}>
-                <NewHabit
-                  api={habits}
-                  onCreated={() => navigate("/home")}
-                  onCancel={() => navigate("/home")}
-                />
-              </PageShell>
-            ) : (
-              <Navigate to="/sign-in" replace />
-            )
-          }
+          element={signedIn ? <AddHabit api={habits} /> : <Navigate to="/sign-in" replace />}
         />
         <Route
           path="/habits/:id"

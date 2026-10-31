@@ -6,7 +6,7 @@ import "./PageShell.css";
 type PageShellProps = {
   children: ReactNode;
   action?: { label: string; to: string };
-  back?: { to: string };
+  back?: { to: string; label?: string };
 };
 
 const DEFAULT_ACTION = { label: "Sign in", to: "/sign-in" };
@@ -30,7 +30,7 @@ export function PageShell({ children, action = DEFAULT_ACTION, back }: PageShell
             >
               <path d="M15 5l-7 7 7 7" />
             </svg>
-            Back
+            {back.label ?? "Back"}
           </Link>
         ) : (
           <header className="page-shell__header">

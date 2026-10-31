@@ -1,5 +1,6 @@
 import type { DateString, HabitSummary, Weekday } from "@trackthat/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { EmptyState } from "../design/EmptyState";
 import { HabitRow } from "../design/HabitRow";
 import { LogoMark } from "../design/LogoMark";
@@ -47,14 +48,12 @@ export function Home({
   api,
   today = todayLocal(),
   onSignOut,
-  onNewHabit,
   onOpenHabit,
 }: {
   email: string;
   api: HabitsApi;
   today?: DateString;
   onSignOut: () => void;
-  onNewHabit: () => void;
   onOpenHabit: (id: string) => void;
 }) {
   usePageTitle("Track That: Home");
@@ -185,16 +184,15 @@ export function Home({
         <main className="home__main">
           <div className="home__title-row">
             <h1 className="home__title">Home</h1>
-            <button
-              type="button"
+            <Link
+              to="/habits/new"
               className={empty ? "home__add home__add--pulse" : "home__add"}
               aria-label="New habit"
-              onClick={onNewHabit}
             >
               <Icon size={20} strokeWidth={2.6}>
                 <path d="M12 5v14M5 12h14" />
               </Icon>
-            </button>
+            </Link>
           </div>
 
           {saveFailed && (

@@ -45,6 +45,19 @@ describe("App", () => {
     expect(screen.getByText("a@x.com")).toBeTruthy();
   });
 
+  it("opens the new habit screen from the + on Home", async () => {
+    const auth = fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") });
+    renderApp(auth);
+    await screen.findByRole("heading", { name: "Home" });
+    fireEvent.click(screen.getByRole("link", { name: "New habit" }));
+    expect(await screen.findByRole("heading", { name: "New habit" })).toBeTruthy();
+  });
+
+  it("sends a signed-out visitor from the new habit screen to sign in", async () => {
+    renderApp(fakeAuth(), "/habits/new");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
+  });
+
   it("shows the features page to a signed-out visitor", async () => {
     renderApp(fakeAuth(), "/features");
     expect(await screen.findByRole("heading", { level: 1, name: "Features" })).toBeTruthy();

@@ -12,14 +12,3 @@
   border-radius: var(--radius-pill);
   background: var(--habit);
 }
-
-.color-swatches__dot--button {
-  padding: 0;
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-
-.color-swatches__dot--button[aria-checked="true"] {
-  border-color: var(--color-surface);
-  box-shadow: 0 0 0 2px var(--habit);
-}
