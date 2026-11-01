@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   Distribution,
   HeadersFrameOption,
@@ -16,9 +17,16 @@ import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3"
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import type { Construct } from "constructs";
 
+export interface WebCustomDomain {
+  readonly domainName: string;
+  // An ISSUED ACM certificate for domainName, in us-east-1 (CloudFront requires it).
+  readonly certificateArn: string;
+}
+
 export interface WebStackProps extends StackProps {
   readonly webAssetPath?: string;
   readonly apiEndpoint?: string;
+  readonly customDomain?: WebCustomDomain;
 }
 
 const defaultWebAssetPath = fileURLToPath(new URL("../../apps/web/dist", import.meta.url));
@@ -86,6 +94,16 @@ export class WebStack extends Stack {
 
     this.distribution = new Distribution(this, "Distribution", {
       defaultRootObject: "index.html",
+      ...(props?.customDomain === undefined
+        ? {}
+        : {
+            domainNames: [props.customDomain.domainName],
+            certificate: Certificate.fromCertificateArn(
+              this,
+              "CustomDomainCertificate",
+              props.customDomain.certificateArn,
+            ),
+          }),
       priceClass: PriceClass.PRICE_CLASS_100,
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessControl(this.bucket),
@@ -110,6 +128,9 @@ export class WebStack extends Stack {
 
     new CfnOutput(this, "WebUrl", {
       value: `https://${this.distribution.distributionDomainName}`,
+    });
+    new CfnOutput(this, "DistributionDomainName", {
+      value: this.distribution.distributionDomainName,
     });
     new CfnOutput(this, "BucketName", { value: this.bucket.bucketName });
   }

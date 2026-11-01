@@ -13,6 +13,12 @@ const api = new ApiStack(app, "TrackThatApi", {
   userPoolClient: auth.userPoolClient,
 });
 new GithubOidcStack(app, "GithubOidcStack");
-new WebStack(app, "TrackThatWeb", { apiEndpoint: api.httpApi.apiEndpoint });
+const webCertificateArn = process.env.WEB_CERTIFICATE_ARN;
+new WebStack(app, "TrackThatWeb", {
+  apiEndpoint: api.httpApi.apiEndpoint,
+  ...(webCertificateArn === undefined || webCertificateArn === ""
+    ? {}
+    : { customDomain: { domainName: "track-that.pkarthikr.in", certificateArn: webCertificateArn } }),
+});
 
 app.synth();
