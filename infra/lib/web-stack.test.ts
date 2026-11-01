@@ -225,3 +225,30 @@ describe("WebStack", () => {
     expect(resolveWebAssetPath(undefined, fixture)).toBe(fixture);
   });
 });
+
+describe("WebStack custom domain", () => {
+  const certificateArn = "arn:aws:acm:us-east-1:123456789012:certificate/abc";
+  const customTemplate = Template.fromStack(
+    new WebStack(new App(), "CustomWeb", {
+      webAssetPath: fixture,
+      customDomain: { domainName: "track-that.example.com", certificateArn },
+    }),
+  );
+
+  it("serves the distribution on the alias with the imported SNI certificate", () => {
+    customTemplate.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: ["track-that.example.com"],
+        ViewerCertificate: Match.objectLike({
+          AcmCertificateArn: certificateArn,
+          SslSupportMethod: "sni-only",
+        }),
+      }),
+    });
+  });
+
+  it("has no alias by default", () => {
+    const [distribution] = Object.values(template.findResources("AWS::CloudFront::Distribution"));
+    expect(distribution?.Properties.DistributionConfig.Aliases).toBeUndefined();
+  });
+});
