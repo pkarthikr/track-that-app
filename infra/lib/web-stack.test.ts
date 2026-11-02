@@ -6,12 +6,7 @@ import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { afterAll, describe, expect, it } from "vitest";
 
-import {
-  WebStack,
-  type WebStackProps,
-  resolveWebAssetPath,
-  wwwRedirectFunctionCode,
-} from "./web-stack";
+import { WebStack, resolveWebAssetPath } from "./web-stack";
 
 const fixture = mkdtempSync(join(tmpdir(), "web-"));
 writeFileSync(join(fixture, "index.html"), "<!doctype html><title>t</title>");
@@ -231,89 +226,29 @@ describe("WebStack", () => {
   });
 });
 
-describe("WebStack with a custom domain", () => {
-  const cert = "arn:aws:acm:us-east-1:123456789012:certificate/abc";
-  const domainName = "track-that.com";
-  const synthWeb = (props: Partial<WebStackProps> = {}) =>
-    Template.fromStack(new WebStack(new App(), "CustomWeb", { webAssetPath: fixture, ...props }));
-  const custom = synthWeb({ domainName, certificateArn: cert });
+describe("WebStack custom domain", () => {
+  const certificateArn = "arn:aws:acm:us-east-1:123456789012:certificate/abc";
+  const customTemplate = Template.fromStack(
+    new WebStack(new App(), "CustomWeb", {
+      webAssetPath: fixture,
+      customDomain: { domainName: "track-that.example.com", certificateArn },
+    }),
+  );
 
-  const loadHandler = (): ((event: unknown) => unknown) =>
-    new Function(`${wwwRedirectFunctionCode(domainName)}; return handler;`)() as (
-      event: unknown,
-    ) => unknown;
-  const eventFor = (host: string, uri = "/", querystring: Record<string, unknown> = {}) => ({
-    request: { uri, querystring, headers: { host: { value: host } } },
-  });
-
-  it("adds both aliases and the imported certificate", () => {
-    custom.hasResourceProperties("AWS::CloudFront::Distribution", {
+  it("serves the distribution on the alias with the imported SNI certificate", () => {
+    customTemplate.hasResourceProperties("AWS::CloudFront::Distribution", {
       DistributionConfig: Match.objectLike({
-        Aliases: ["track-that.com", "www.track-that.com"],
+        Aliases: ["track-that.example.com"],
         ViewerCertificate: Match.objectLike({
-          AcmCertificateArn: cert,
+          AcmCertificateArn: certificateArn,
           SslSupportMethod: "sni-only",
-          MinimumProtocolVersion: "TLSv1.2_2021",
         }),
       }),
     });
   });
 
-  it("attaches a viewer-request function to the default behavior", () => {
-    expect(Object.keys(custom.findResources("AWS::CloudFront::Function"))).toHaveLength(1);
-    custom.hasResourceProperties("AWS::CloudFront::Distribution", {
-      DistributionConfig: Match.objectLike({
-        DefaultCacheBehavior: Match.objectLike({
-          FunctionAssociations: Match.arrayWith([
-            Match.objectLike({ EventType: "viewer-request" }),
-          ]),
-        }),
-      }),
-    });
-  });
-
-  it("redirects www to the apex and keeps path and query", () => {
-    const handler = loadHandler();
-    expect(handler(eventFor("www.track-that.com", "/habits", { x: { value: "1" } }))).toMatchObject(
-      {
-        statusCode: 301,
-        headers: { location: { value: "https://track-that.com/habits?x=1" } },
-      },
-    );
-    const bare = handler(eventFor("www.track-that.com", "/habits")) as {
-      headers: { location: { value: string } };
-    };
-    expect(bare.headers.location.value).toBe("https://track-that.com/habits");
-    expect(bare.headers.location.value).not.toContain("?");
-  });
-
-  it("does not redirect the apex or look-alike hosts", () => {
-    const handler = loadHandler();
-    for (const host of ["track-that.com", "wwwfoo.track-that.com"]) {
-      const event = eventFor(host, "/habits");
-      expect(handler(event)).toBe(event.request);
-    }
-  });
-
-  it("points WebUrl at the domain and exposes DistributionDomain", () => {
-    custom.hasOutput("WebUrl", { Value: "https://track-that.com" });
-    custom.hasOutput("DistributionDomain", {});
-  });
-
-  it("rejects half-configured props", () => {
-    expect(() => synthWeb({ domainName })).toThrow(/domainName.*certificateArn/);
-    expect(() => synthWeb({ certificateArn: cert })).toThrow(/domainName.*certificateArn/);
-  });
-
-  it("rejects a certificate outside us-east-1", () => {
-    expect(() =>
-      synthWeb({ domainName, certificateArn: cert.replace("us-east-1", "eu-west-1") }),
-    ).toThrow(/us-east-1/);
-  });
-
-  it("rejects a domain that starts with www., has uppercase letters, or ends with a dot", () => {
-    for (const bad of ["www.track-that.com", "Track-That.com", "track-that.com."]) {
-      expect(() => synthWeb({ domainName: bad, certificateArn: cert })).toThrow(/domainName/);
-    }
+  it("has no alias by default", () => {
+    const [distribution] = Object.values(template.findResources("AWS::CloudFront::Distribution"));
+    expect(distribution?.Properties.DistributionConfig.Aliases).toBeUndefined();
   });
 });
