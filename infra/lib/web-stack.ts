@@ -2,14 +2,19 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
+import { Arn, ArnFormat, CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
 import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   Distribution,
+  Function,
+  FunctionCode,
+  FunctionEventType,
+  FunctionRuntime,
   HeadersFrameOption,
   HeadersReferrerPolicy,
   PriceClass,
   ResponseHeadersPolicy,
+  SecurityPolicyProtocol,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
@@ -21,6 +26,8 @@ export interface WebCustomDomain {
   readonly domainName: string;
   // An ISSUED ACM certificate for domainName, in us-east-1 (CloudFront requires it).
   readonly certificateArn: string;
+  // Also serve www.<domainName>, redirecting it to the apex with a 301.
+  readonly includeWww?: boolean;
 }
 
 export interface WebStackProps extends StackProps {
@@ -44,12 +51,61 @@ export function resolveWebAssetPath(
   return defaultPath;
 }
 
+// CloudFront Function (cloudfront-js-2.0) that 301s www.<domainName> to the apex.
+export function wwwRedirectFunctionCode(domainName: string): string {
+  return `function handler(event) {
+  var request = event.request;
+  var host = request.headers.host && request.headers.host.value;
+  if (host !== ${JSON.stringify(`www.${domainName}`)}) {
+    return request;
+  }
+  var pairs = [];
+  var query = request.querystring || {};
+  for (var key in query) {
+    var entry = query[key];
+    if (entry.multiValue) {
+      for (var i = 0; i < entry.multiValue.length; i++) {
+        pairs.push(key + "=" + entry.multiValue[i].value);
+      }
+    } else {
+      pairs.push(key + "=" + entry.value);
+    }
+  }
+  var location = "https://" + ${JSON.stringify(domainName)} + request.uri + (pairs.length > 0 ? "?" + pairs.join("&") : "");
+  return {
+    statusCode: 301,
+    statusDescription: "Moved Permanently",
+    headers: { location: { value: location } },
+  };
+}`;
+}
+
+const domainNamePattern =
+  /^(?!www\.)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
+function validateCustomDomain(customDomain: WebCustomDomain): void {
+  if (!domainNamePattern.test(customDomain.domainName)) {
+    throw new Error(
+      `Invalid domainName "${customDomain.domainName}": use a lowercase hostname with no trailing dot and no leading "www."`,
+    );
+  }
+  if (
+    Arn.split(customDomain.certificateArn, ArnFormat.SLASH_RESOURCE_NAME).region !== "us-east-1"
+  ) {
+    throw new Error(
+      `certificateArn must be an ACM certificate in us-east-1 (CloudFront requirement): ${customDomain.certificateArn}`,
+    );
+  }
+}
+
 export class WebStack extends Stack {
   readonly bucket: Bucket;
   readonly distribution: Distribution;
 
   constructor(scope: Construct, id: string, props?: WebStackProps) {
     super(scope, id, props);
+
+    if (props?.customDomain !== undefined) validateCustomDomain(props.customDomain);
 
     this.bucket = new Bucket(this, "SiteBucket", {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
@@ -97,7 +153,13 @@ export class WebStack extends Stack {
       ...(props?.customDomain === undefined
         ? {}
         : {
-            domainNames: [props.customDomain.domainName],
+            domainNames: [
+              props.customDomain.domainName,
+              ...(props.customDomain.includeWww === true
+                ? [`www.${props.customDomain.domainName}`]
+                : []),
+            ],
+            minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
             certificate: Certificate.fromCertificateArn(
               this,
               "CustomDomainCertificate",
@@ -110,6 +172,21 @@ export class WebStack extends Stack {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         compress: true,
         responseHeadersPolicy,
+        ...(props?.customDomain?.includeWww === true
+          ? {
+              functionAssociations: [
+                {
+                  function: new Function(this, "WwwRedirect", {
+                    code: FunctionCode.fromInline(
+                      wwwRedirectFunctionCode(props.customDomain.domainName),
+                    ),
+                    runtime: FunctionRuntime.JS_2_0,
+                  }),
+                  eventType: FunctionEventType.VIEWER_REQUEST,
+                },
+              ],
+            }
+          : {}),
       },
       errorResponses: [403, 404].map((httpStatus) => ({
         httpStatus,
@@ -127,7 +204,7 @@ export class WebStack extends Stack {
     });
 
     new CfnOutput(this, "WebUrl", {
-      value: `https://${this.distribution.distributionDomainName}`,
+      value: `https://${props?.customDomain?.domainName ?? this.distribution.distributionDomainName}`,
     });
     new CfnOutput(this, "DistributionDomainName", {
       value: this.distribution.distributionDomainName,

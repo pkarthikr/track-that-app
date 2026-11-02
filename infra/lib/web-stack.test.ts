@@ -6,7 +6,7 @@ import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { WebStack, resolveWebAssetPath } from "./web-stack";
+import { WebStack, resolveWebAssetPath, wwwRedirectFunctionCode } from "./web-stack";
 
 const fixture = mkdtempSync(join(tmpdir(), "web-"));
 writeFileSync(join(fixture, "index.html"), "<!doctype html><title>t</title>");
@@ -250,5 +250,113 @@ describe("WebStack custom domain", () => {
   it("has no alias by default", () => {
     const [distribution] = Object.values(template.findResources("AWS::CloudFront::Distribution"));
     expect(distribution?.Properties.DistributionConfig.Aliases).toBeUndefined();
+  });
+
+  it("adds no function and no www alias when includeWww is not set", () => {
+    customTemplate.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ Aliases: ["track-that.example.com"] }),
+    });
+    customTemplate.resourceCountIs("AWS::CloudFront::Function", 0);
+  });
+
+  it("points WebUrl at the domain", () => {
+    customTemplate.hasOutput("WebUrl", { Value: "https://track-that.example.com" });
+  });
+
+  it("rejects an invalid domain", () => {
+    for (const domainName of ["www.track-that.com", "Track-That.com", "track-that.com."]) {
+      expect(
+        () =>
+          new WebStack(new App(), "BadDomain", {
+            webAssetPath: fixture,
+            customDomain: { domainName, certificateArn },
+          }),
+      ).toThrow(/domainName/);
+    }
+  });
+
+  it("rejects a certificate outside us-east-1", () => {
+    expect(
+      () =>
+        new WebStack(new App(), "BadCert", {
+          webAssetPath: fixture,
+          customDomain: {
+            domainName: "track-that.example.com",
+            certificateArn: "arn:aws:acm:eu-west-1:123456789012:certificate/abc",
+          },
+        }),
+    ).toThrow(/us-east-1/);
+  });
+});
+
+describe("WebStack with includeWww", () => {
+  const certificateArn = "arn:aws:acm:us-east-1:123456789012:certificate/abc";
+  const wwwTemplate = Template.fromStack(
+    new WebStack(new App(), "WwwWeb", {
+      webAssetPath: fixture,
+      customDomain: { domainName: "track-that.example.com", certificateArn, includeWww: true },
+    }),
+  );
+
+  it("adds the www alias alongside the apex", () => {
+    wwwTemplate.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: ["track-that.example.com", "www.track-that.example.com"],
+        ViewerCertificate: Match.objectLike({ MinimumProtocolVersion: "TLSv1.2_2021" }),
+      }),
+    });
+  });
+
+  it("attaches a viewer-request function", () => {
+    wwwTemplate.resourceCountIs("AWS::CloudFront::Function", 1);
+    wwwTemplate.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({
+          FunctionAssociations: [Match.objectLike({ EventType: "viewer-request" })],
+        }),
+      }),
+    });
+  });
+
+  type Handler = (event: { request: unknown }) => {
+    statusCode?: number;
+    headers?: { location: { value: string } };
+  };
+  const load = (domain: string): Handler =>
+    new Function(`${wwwRedirectFunctionCode(domain)}; return handler;`)() as Handler;
+  const requestFor = (
+    host: string,
+    uri: string,
+    querystring: Record<string, { value: string; multiValue?: { value: string }[] }>,
+  ) => ({
+    request: { headers: { host: { value: host } }, uri, querystring },
+  });
+
+  it("redirects www to the apex and keeps path and query", () => {
+    const handler = load("track-that.com");
+    const withQuery = handler(requestFor("www.track-that.com", "/habits", { x: { value: "1" } }));
+    expect(withQuery.statusCode).toBe(301);
+    expect(withQuery.headers?.location.value).toBe("https://track-that.com/habits?x=1");
+    const without = handler(requestFor("www.track-that.com", "/habits", {}));
+    expect(without.headers?.location.value).toBe("https://track-that.com/habits");
+  });
+
+  it("keeps repeated query parameters in order", () => {
+    const handler = load("track-that.com");
+    const result = handler(
+      requestFor("www.track-that.com", "/habits", {
+        a: { value: "1", multiValue: [{ value: "1" }, { value: "2" }] },
+        x: { value: "y" },
+      }),
+    );
+    expect(result.headers?.location.value).toBe("https://track-that.com/habits?a=1&a=2&x=y");
+  });
+
+  it("does not redirect the apex or look-alike hosts", () => {
+    const handler = load("track-that.com");
+    for (const host of ["track-that.com", "wwwfoo.track-that.com"]) {
+      const event = requestFor(host, "/", {});
+      expect(handler(event)).toBe(event.request);
+    }
   });
 });

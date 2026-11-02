@@ -113,7 +113,43 @@ To deploy, open the Actions tab, choose Deploy, and Run workflow on `main`, or r
 
 The next deploy replaces the Cognito user pool and needs two Deploy runs; see the [deploy note](#authentication) in Authentication.
 
-Site URL: after a deploy, the `WebUrl` output of `TrackThatWeb` appears in the workflow log and is the address of the site. The URL is unlisted but public. Cognito self sign-up is open, so anyone who finds the URL can register, and Cognito's default email sender allows 50 emails a day.
+Site URL: after a deploy, the `WebUrl` output of `TrackThatWeb` appears in the workflow log and is the address of the site. The URL is unlisted but public. Cognito self sign-up is open, so anyone who finds the URL can register, and Cognito's default email sender allows 50 emails a day. Once a custom domain is configured, `WebUrl` shows that domain instead.
+
+### Custom domain
+
+The web app can be served on your own domain. Two optional repository variables control it (set them like the others in the one-time setup):
+
+- `WEB_CERTIFICATE_ARN`: the ARN of an ACM certificate in `us-east-1`. It is required for any custom domain. Today it holds the certificate for `track-that.pkarthikr.in`.
+- `WEB_DOMAIN`: the domain to serve, for example `track-that.com`. When it is unset, the site keeps the legacy hostname `track-that.pkarthikr.in` with a single alias and no `www`. When it is set, CloudFront gets the apex and `www.` aliases, and `www` redirects to the apex with a 301, keeping the path and query string.
+
+The `DistributionDomainName` output of `TrackThatWeb` is the CNAME target for DNS. DNS is on Cloudflare, and every record pointing at CloudFront must be DNS-only (grey cloud, not proxied). The apex record is a CNAME, which Cloudflare flattens.
+
+Cutover from `track-that.pkarthikr.in` to `track-that.com`. Each step that touches a real resource is for the owner to run or approve:
+
+1. Point the registrar's nameservers at Cloudflare.
+2. Request one ACM certificate in `us-east-1` that covers both `track-that.com` and `www.track-that.com`:
+
+   ```bash
+   aws acm request-certificate --region us-east-1 --domain-name track-that.com --subject-alternative-names www.track-that.com --validation-method DNS
+   ```
+
+   Add its validation CNAME in Cloudflare (DNS-only), then wait until the certificate status is `ISSUED`. The existing certificate keeps serving until step 4.
+
+3. Set the repository variables, overwriting `WEB_CERTIFICATE_ARN` with the new ARN:
+
+   ```bash
+   gh variable set WEB_DOMAIN --body "track-that.com"
+   gh variable set WEB_CERTIFICATE_ARN --body "<new certificate ARN>"
+   ```
+
+4. Run the Deploy workflow (`gh workflow run deploy.yml --ref main`). This swaps the alias and certificate on the existing distribution in place. From this point `track-that.pkarthikr.in` no longer serves the app.
+5. In Cloudflare add DNS-only CNAMEs for `track-that.com` (the apex, flattened) and `www`, both pointing at the `DistributionDomainName` output (currently `d3aozdjtqh8agx.cloudfront.net`, unless the distribution is replaced). To avoid a gap, create these records before step 4: they resolve to CloudFront but are rejected until the alias exists. Between step 4 and step 5 the new domain has no record, and the app is reachable only on the cloudfront.net URL.
+6. Verify in a browser: the apex loads, `www` redirects with the path kept, sign-in works, and a hard refresh on a deep link works.
+7. Delete the `track-that.pkarthikr.in` DNS record. The old certificate is now unused and can be deleted.
+
+Keep the new certificate's validation CNAME in Cloudflare permanently; ACM uses it to renew the certificate.
+
+Caveats: deploying before the certificate is `ISSUED`, or with a certificate that does not cover both names, fails the stack update. The certificate must be in `us-east-1`. The aliases, redirect, and certificate wiring are covered by synth tests only, so the first real deploy is what proves them.
 
 ## Authentication
 
