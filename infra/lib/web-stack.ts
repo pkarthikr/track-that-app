@@ -62,7 +62,14 @@ export function wwwRedirectFunctionCode(domainName: string): string {
   var pairs = [];
   var query = request.querystring || {};
   for (var key in query) {
-    pairs.push(key + "=" + query[key].value);
+    var entry = query[key];
+    if (entry.multiValue) {
+      for (var i = 0; i < entry.multiValue.length; i++) {
+        pairs.push(key + "=" + entry.multiValue[i].value);
+      }
+    } else {
+      pairs.push(key + "=" + entry.value);
+    }
   }
   var location = "https://" + ${JSON.stringify(domainName)} + request.uri + (pairs.length > 0 ? "?" + pairs.join("&") : "");
   return {

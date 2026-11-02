@@ -327,7 +327,7 @@ describe("WebStack with includeWww", () => {
   const requestFor = (
     host: string,
     uri: string,
-    querystring: Record<string, { value: string }>,
+    querystring: Record<string, { value: string; multiValue?: { value: string }[] }>,
   ) => ({
     request: { headers: { host: { value: host } }, uri, querystring },
   });
@@ -339,6 +339,17 @@ describe("WebStack with includeWww", () => {
     expect(withQuery.headers?.location.value).toBe("https://track-that.com/habits?x=1");
     const without = handler(requestFor("www.track-that.com", "/habits", {}));
     expect(without.headers?.location.value).toBe("https://track-that.com/habits");
+  });
+
+  it("keeps repeated query parameters in order", () => {
+    const handler = load("track-that.com");
+    const result = handler(
+      requestFor("www.track-that.com", "/habits", {
+        a: { value: "1", multiValue: [{ value: "1" }, { value: "2" }] },
+        x: { value: "y" },
+      }),
+    );
+    expect(result.headers?.location.value).toBe("https://track-that.com/habits?a=1&a=2&x=y");
   });
 
   it("does not redirect the apex or look-alike hosts", () => {
