@@ -82,4 +82,5 @@ jobs:
       - name: CDK deploy
         env:
           WEB_CERTIFICATE_ARN: ${{ vars.WEB_CERTIFICATE_ARN }}
+          WEB_DOMAIN: ${{ vars.WEB_DOMAIN }}
         run: pnpm --filter @trackthat/infra exec cdk deploy TrackThatApi TrackThatAuth TrackThatWeb --require-approval never
