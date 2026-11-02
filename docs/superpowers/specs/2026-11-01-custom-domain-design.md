@@ -2,86 +2,81 @@
 
 ## Goal
 
-The web app is served from `https://track-that.com` over HTTPS. `www.track-that.com` redirects to the apex. The old hostname `track-that.pkarthikr.in` is retired. DNS for `track-that.com` lives on Cloudflare.
+The web app is served from `https://track-that.com` over HTTPS. `www.track-that.com` redirects to the apex. The old hostname `track-that.pkarthikr.in` is retired. DNS for `track-that.com` lives on Cloudflare (DNS-only).
+
+## Starting state (verified 2026-11-01)
+
+This is an increment on `e3704ef feat(infra): optional custom domain for the web distribution`, already on `main` and deployed:
+
+- `WebStack` has an optional `customDomain: { domainName, certificateArn }` prop. It sets one alias and imports the certificate (`Certificate.fromCertificateArn`, SNI). `bin/app.ts` hardcodes `domainName: "track-that.pkarthikr.in"` and reads the ARN from the `WEB_CERTIFICATE_ARN` env var; `deploy.yml` passes it from the repo variable of the same name.
+- Deployed: stack `TrackThatWeb` (`UPDATE_COMPLETE`), distribution `ENQEH76X50MMO` (`d3aozdjtqh8agx.cloudfront.net`) with alias `track-that.pkarthikr.in`, using ACM certificate `976e71cb-59ab-44e9-96e0-07cf14d4506b`, which is `ISSUED` and covers only that hostname.
+- Output `DistributionDomainName` already exists and stays. `WebUrl` is the cloudfront.net URL.
+- Cognito has OAuth disabled (no callback or logout URLs). API CORS is `allowOrigins: ["*"]`. Neither needs a change.
 
 ## Scope
 
 In scope:
 
-- `WebStack` support for a custom domain: CloudFront aliases, an imported ACM certificate, and a `www` -> apex redirect.
-- Passing the domain and certificate ARN in through repo variables and the Deploy workflow.
-- Tests for the new behavior.
-- A README section with the domain config and the cutover runbook.
+- Make the custom domain's name configurable (`WEB_DOMAIN`) instead of hardcoded.
+- Add the `www.<domain>` alias and a `www` -> apex 301 redirect.
+- Validate the domain config at synth time.
+- README section with the domain config and the cutover runbook.
 
 Out of scope:
 
-- Cloudflare proxying (orange cloud). Cloudflare is DNS-only.
-- Managing Cloudflare records or the ACM certificate from code.
-- An API domain (the API stack is empty), and email on the domain.
-- A redirect from `track-that.pkarthikr.in`. It is removed, not redirected.
+- Cloudflare proxying (orange cloud), and managing Cloudflare records or the ACM certificate from code.
+- A redirect from `track-that.pkarthikr.in` (it is removed, not redirected).
+- Email on the domain, and any API domain.
 
 ## Decisions
 
-| Topic            | Choice                                              | Why                                                                                              |
-| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| DNS host         | Cloudflare, DNS-only                                | Owner's choice. Browsers connect straight to CloudFront, so the existing headers and caching stay the only layer. |
-| Certificate      | Requested once in ACM (us-east-1), ARN passed in    | CDK cannot write Cloudflare records, so an in-stack certificate would block the first deploy on a manual DNS step. |
-| Old domain       | Removed                                             | Owner's choice. Nothing in the repo refers to it, so removal is deleting its DNS record.          |
-| `www`            | 301 to the apex through a CloudFront Function       | One canonical URL. Path and query are preserved.                                                  |
-| Unset config     | Behaves exactly as today (cloudfront.net only)      | CI synth and existing tests keep working with no domain configured.                               |
+| Topic           | Choice                                                      | Why                                                                                                         |
+| --------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| DNS host        | Cloudflare, DNS-only                                        | Owner's choice. Browsers connect straight to CloudFront.                                                    |
+| Certificate     | Requested once in ACM (us-east-1); ARN in `WEB_CERTIFICATE_ARN` | Already the merged approach; CDK cannot write Cloudflare records.                                           |
+| Domain name     | New repo variable `WEB_DOMAIN`; unset keeps `track-that.pkarthikr.in` | Existing deploys keep working unchanged until the owner flips the variables at cutover.                      |
+| `www`           | Alias and 301 to the apex, opt-in via `includeWww`          | One canonical URL. Off for the legacy hostname, whose certificate has no `www` name.                        |
+| Old domain      | Removed by the swap deploy, then its DNS record deleted     | Owner's choice. One deploy swaps alias and certificate in place.                                            |
 
 ## Changes
 
 ### `infra/lib/web-stack.ts`
 
-`WebStackProps` gains optional `domainName` and `certificateArn`.
+`WebCustomDomain` keeps `domainName` and `certificateArn`. Behavior when `customDomain` is set:
 
-- Both unset: no aliases, no custom certificate (today's behavior).
-- Both set: the distribution gets `domainNames` of `[domainName, "www." + domainName]`, a `certificate` imported with `Certificate.fromCertificateArn`, `minimumProtocolVersion` TLS 1.2 (2021 policy), and SNI. A `cloudfront.Function` is attached to the default behavior as a viewer-request handler. If the `Host` header starts with `www.`, it returns a 301 to `https://<domainName><uri><querystring>`. Otherwise it passes the request through.
-- Exactly one set: the constructor throws an error naming both props.
-- `certificateArn` must be an ACM ARN in `us-east-1`. The constructor throws if it is not (a CloudFront requirement that otherwise fails late, at deploy).
+- Validation (throws at construct time): `domainName` must be a lowercase hostname (no trailing dot, no leading `www.`); `certificateArn` must be an ACM ARN whose region is `us-east-1`.
+- The new optional field `customDomain.includeWww` (boolean) controls `www`. When it is not `true`: one alias and no function, as today. The legacy certificate covers only `track-that.pkarthikr.in`, so the legacy hostname must not get a `www` alias.
+- When `includeWww` is `true`, aliases are `[domainName, "www." + domainName]` and a viewer-request CloudFront Function on the default behavior 301s a request whose host is `www.<domainName>` to `https://<domainName><uri><querystring>`; all other hosts pass through. The certificate must cover both names.
+- Either way the distribution sets `minimumProtocolVersion` TLS 1.2 (2021 policy).
 
-Outputs: `WebUrl` is `https://<domainName>` when configured, else the cloudfront.net URL. A new `DistributionDomain` output holds `distributionDomainName` (the CNAME target for Cloudflare).
+`WebUrl` is `https://<domainName>` when `customDomain` is set, otherwise the cloudfront.net URL. `DistributionDomainName` is unchanged. CSP, HSTS, headers, bucket, and the SPA fallback are unchanged.
 
-The CSP, HSTS (already `includeSubdomains`), other security headers, the 403/404 SPA fallback, and the bucket stay unchanged. The CSP uses `'self'` plus the Cognito endpoint, so it follows the new origin automatically.
+### `infra/bin/app.ts` and `.github/workflows/deploy.yml`
 
-### `infra/bin/app.ts`
-
-Reads `WEB_DOMAIN` and `WEB_CERT_ARN` from the environment and passes them to `WebStack` (empty strings count as unset).
-
-### `.github/workflows/deploy.yml`
-
-The CDK deploy step passes `WEB_DOMAIN` and `WEB_CERT_ARN` from repo variables of the same names. The "Require web build variables" step also fails if exactly one of the two is set.
-
-### Cognito
-
-No change. The user pool client has `disableOAuth: true` and the app signs in with email and password directly, so there are no callback or logout URLs to update.
+- `bin/app.ts`: `domainName` comes from `WEB_DOMAIN` (empty counts as unset, falling back to `track-that.pkarthikr.in`); `includeWww` is true exactly when `WEB_DOMAIN` is set. The certificate ARN logic is unchanged.
+- `deploy.yml`: the CDK deploy step also passes `WEB_DOMAIN` from `vars.WEB_DOMAIN`.
 
 ### Tests (`infra/lib/web-stack.test.ts`)
 
-- Unset: the distribution has no `Aliases` and no custom `ViewerCertificate` (the existing assertions, kept as the unset case).
-- Configured: `Aliases` hold both names, `ViewerCertificate` uses the given ARN with `SNI` and a TLS 1.2 minimum, and the default behavior has a viewer-request function association.
-- The function code contains the 301 and the apex target.
-- Half-configured props throw; a non-us-east-1 ARN throws.
-- Outputs: `WebUrl` and `DistributionDomain` as described.
+Keep the existing custom-domain tests. Add: `includeWww` aliases, the viewer-request function and its redirect behavior (path and query kept, apex and look-alike hosts untouched), `WebUrl` on the domain, and the validation errors. Add a small `readWebDomainConfig` unit for the env parsing.
 
 ## Cutover runbook (documented in the README)
 
 Every step that touches a real resource needs the owner's go-ahead for that exact step.
 
 1. Owner points the registrar's nameservers at Cloudflare.
-2. Request one ACM certificate in us-east-1 for `track-that.com` and `www.track-that.com`. Add its validation CNAME in Cloudflare (DNS-only). Wait for status `ISSUED`.
-3. Set repo variables `WEB_DOMAIN=track-that.com` and `WEB_CERT_ARN=<arn>`.
-4. Run the Deploy workflow (`gh workflow run deploy.yml --ref main`).
-5. Read the `DistributionDomain` output. In Cloudflare add DNS-only CNAMEs for `track-that.com` (flattened at the apex) and `www`, both pointing at it.
-6. Verify in a browser: the apex loads, `www` redirects with path preserved, sign-in works, a hard refresh on a deep link works.
-7. Delete the `track-that.pkarthikr.in` DNS record.
+2. Request one ACM certificate in us-east-1 for `track-that.com` and `www.track-that.com`. Add its validation CNAME in Cloudflare (DNS-only). Wait for `ISSUED`. The existing certificate keeps serving until step 4.
+3. Set repo variables: `WEB_DOMAIN=track-that.com`, and overwrite `WEB_CERTIFICATE_ARN` with the new ARN.
+4. Run the Deploy workflow (`gh workflow run deploy.yml --ref main`). This swaps the alias and certificate in place. From here `track-that.pkarthikr.in` no longer serves the app.
+5. In Cloudflare add DNS-only CNAMEs for `track-that.com` (apex, flattened) and `www`, both pointing at the `DistributionDomainName` output (`d3aozdjtqh8agx.cloudfront.net` unless the distribution is replaced).
+6. Verify in a browser: the apex loads, `www` redirects with the path kept, sign-in works, a hard refresh on a deep link works.
+7. Delete the `track-that.pkarthikr.in` DNS record. After step 4 the old certificate is unused and can be deleted.
 
-Keep the certificate's validation CNAME in Cloudflare permanently; ACM uses it to renew.
+Keep the new certificate's validation CNAME in Cloudflare permanently; ACM uses it to renew.
 
 ## Risks and unverified items
 
-- The redirect function, aliases and certificate wiring are covered by synth tests only. They are proven only by a real deploy, and browser behavior cannot be checked from this environment.
-- The CloudFront alias is rejected if the certificate does not cover both names, or is not yet `ISSUED`, at deploy time. Step 2 must finish first.
-- Changing aliases and the certificate updates the distribution in place and takes a few minutes to propagate; the cloudfront.net URL keeps working throughout.
-- The old `track-that.pkarthikr.in` record is not in this repo, so its current target is unverified. The runbook only asks the owner to delete it.
+- The redirect function, aliases, and certificate wiring are covered by synth tests only; a real deploy proves them. Browser behavior cannot be checked from this environment.
+- Step 4 is not zero-downtime for the old hostname by design. Between step 4 and step 5 the new domain has no DNS record yet, so the app is reachable only on the cloudfront.net URL. Do step 5 straight after step 4, or add the Cloudflare records before step 4 (they resolve to CloudFront but are rejected until the alias exists).
+- Deploying with the new certificate before it is `ISSUED`, or with a certificate that does not cover both names, fails the stack update.
+- Custom domain validation uses the same ARN-region rule as CloudFront: the certificate must be in `us-east-1`.
