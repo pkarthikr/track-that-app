@@ -18,7 +18,7 @@ new WebStack(app, "TrackThatWeb", {
   apiEndpoint: api.httpApi.apiEndpoint,
   ...(webCertificateArn === undefined || webCertificateArn === ""
     ? {}
-    : { customDomain: { domainName: "track-that.pkarthikr.in", certificateArn: webCertificateArn } }),
+    : { domainName: "track-that.pkarthikr.in", certificateArn: webCertificateArn }),
 });
 
 app.synth();

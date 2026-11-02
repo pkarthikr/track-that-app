@@ -6,10 +6,16 @@ import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
 import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   Distribution,
+  Function,
+  FunctionCode,
+  FunctionEventType,
+  FunctionRuntime,
   HeadersFrameOption,
   HeadersReferrerPolicy,
   PriceClass,
   ResponseHeadersPolicy,
+  SSLMethod,
+  SecurityPolicyProtocol,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
@@ -17,16 +23,60 @@ import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3"
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import type { Construct } from "constructs";
 
-export interface WebCustomDomain {
-  readonly domainName: string;
-  // An ISSUED ACM certificate for domainName, in us-east-1 (CloudFront requires it).
-  readonly certificateArn: string;
-}
-
 export interface WebStackProps extends StackProps {
   readonly webAssetPath?: string;
   readonly apiEndpoint?: string;
-  readonly customDomain?: WebCustomDomain;
+  // Apex domain to serve on (www.<domainName> redirects to it). Set together with certificateArn.
+  readonly domainName?: string;
+  // An ISSUED ACM certificate in us-east-1 covering domainName and www.<domainName>.
+  readonly certificateArn?: string;
+}
+
+const domainNamePattern =
+  /^(?!www\.)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
+function resolveDomainConfig(
+  props: WebStackProps | undefined,
+): { domainName: string; certificateArn: string } | undefined {
+  const domainName = props?.domainName;
+  const certificateArn = props?.certificateArn;
+  if (domainName === undefined && certificateArn === undefined) return undefined;
+  if (domainName === undefined || certificateArn === undefined) {
+    throw new Error("domainName and certificateArn must be set together");
+  }
+  if (!domainNamePattern.test(domainName)) {
+    throw new Error(
+      `domainName must be a lowercase apex domain without a www. prefix or trailing dot, got "${domainName}"`,
+    );
+  }
+  if (certificateArn.split(":")[3] !== "us-east-1") {
+    throw new Error(
+      "certificateArn must be an ACM certificate in us-east-1 (CloudFront requires it)",
+    );
+  }
+  return { domainName, certificateArn };
+}
+
+// CloudFront Function (viewer-request): 301 www.<domainName> to the apex, keeping path and query.
+export function wwwRedirectFunctionCode(domainName: string): string {
+  return `function handler(event) {
+  var request = event.request;
+  if (request.headers.host && request.headers.host.value === ${JSON.stringify(`www.${domainName}`)}) {
+    var pairs = [];
+    var qs = request.querystring || {};
+    for (var key in qs) {
+      pairs.push(key + "=" + qs[key].value);
+    }
+    var location = "https://" + ${JSON.stringify(domainName)} + request.uri + (pairs.length > 0 ? "?" + pairs.join("&") : "");
+    return {
+      statusCode: 301,
+      statusDescription: "Moved Permanently",
+      headers: { location: { value: location } }
+    };
+  }
+  return request;
+}
+`;
 }
 
 const defaultWebAssetPath = fileURLToPath(new URL("../../apps/web/dist", import.meta.url));
@@ -50,6 +100,8 @@ export class WebStack extends Stack {
 
   constructor(scope: Construct, id: string, props?: WebStackProps) {
     super(scope, id, props);
+
+    const domain = resolveDomainConfig(props);
 
     this.bucket = new Bucket(this, "SiteBucket", {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
@@ -94,15 +146,17 @@ export class WebStack extends Stack {
 
     this.distribution = new Distribution(this, "Distribution", {
       defaultRootObject: "index.html",
-      ...(props?.customDomain === undefined
+      ...(domain === undefined
         ? {}
         : {
-            domainNames: [props.customDomain.domainName],
+            domainNames: [domain.domainName, `www.${domain.domainName}`],
             certificate: Certificate.fromCertificateArn(
               this,
-              "CustomDomainCertificate",
-              props.customDomain.certificateArn,
+              "SiteCertificate",
+              domain.certificateArn,
             ),
+            minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
+            sslSupportMethod: SSLMethod.SNI,
           }),
       priceClass: PriceClass.PRICE_CLASS_100,
       defaultBehavior: {
@@ -110,6 +164,19 @@ export class WebStack extends Stack {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         compress: true,
         responseHeadersPolicy,
+        ...(domain === undefined
+          ? {}
+          : {
+              functionAssociations: [
+                {
+                  function: new Function(this, "WwwRedirect", {
+                    code: FunctionCode.fromInline(wwwRedirectFunctionCode(domain.domainName)),
+                    runtime: FunctionRuntime.JS_2_0,
+                  }),
+                  eventType: FunctionEventType.VIEWER_REQUEST,
+                },
+              ],
+            }),
       },
       errorResponses: [403, 404].map((httpStatus) => ({
         httpStatus,
@@ -127,9 +194,9 @@ export class WebStack extends Stack {
     });
 
     new CfnOutput(this, "WebUrl", {
-      value: `https://${this.distribution.distributionDomainName}`,
+      value: `https://${domain?.domainName ?? this.distribution.distributionDomainName}`,
     });
-    new CfnOutput(this, "DistributionDomainName", {
+    new CfnOutput(this, "DistributionDomain", {
       value: this.distribution.distributionDomainName,
     });
     new CfnOutput(this, "BucketName", { value: this.bucket.bucketName });
