@@ -168,7 +168,8 @@ describe("App", () => {
       archived: false,
       createdAt: "2026-01-01T00:00:00.000Z",
       streak: 2,
-      done: [],
+      goal: 1,
+      counts: {},
     });
     const signedIn = () => fakeAuth({ getCurrentUser: vi.fn().mockResolvedValue("a@x.com") });
     const detail = render(
