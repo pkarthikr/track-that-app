@@ -66,22 +66,50 @@
 
 .habit-color--green {
   --habit: var(--habit-green-4);
+  --habit-step-1: var(--habit-green-1);
+  --habit-step-2: var(--habit-green-2);
+  --habit-step-3: var(--habit-green-3);
+  --habit-step-4: var(--habit-green-4);
 }
 .habit-color--teal {
   --habit: var(--habit-teal-4);
+  --habit-step-1: var(--habit-teal-1);
+  --habit-step-2: var(--habit-teal-2);
+  --habit-step-3: var(--habit-teal-3);
+  --habit-step-4: var(--habit-teal-4);
 }
 .habit-color--blue {
   --habit: var(--habit-blue-4);
+  --habit-step-1: var(--habit-blue-1);
+  --habit-step-2: var(--habit-blue-2);
+  --habit-step-3: var(--habit-blue-3);
+  --habit-step-4: var(--habit-blue-4);
 }
 .habit-color--violet {
   --habit: var(--habit-violet-4);
+  --habit-step-1: var(--habit-violet-1);
+  --habit-step-2: var(--habit-violet-2);
+  --habit-step-3: var(--habit-violet-3);
+  --habit-step-4: var(--habit-violet-4);
 }
 .habit-color--pink {
   --habit: var(--habit-pink-4);
+  --habit-step-1: var(--habit-pink-1);
+  --habit-step-2: var(--habit-pink-2);
+  --habit-step-3: var(--habit-pink-3);
+  --habit-step-4: var(--habit-pink-4);
 }
 .habit-color--coral {
   --habit: var(--habit-coral-4);
+  --habit-step-1: var(--habit-coral-1);
+  --habit-step-2: var(--habit-coral-2);
+  --habit-step-3: var(--habit-coral-3);
+  --habit-step-4: var(--habit-coral-4);
 }
 .habit-color--orange {
   --habit: var(--habit-orange-4);
+  --habit-step-1: var(--habit-orange-1);
+  --habit-step-2: var(--habit-orange-2);
+  --habit-step-3: var(--habit-orange-3);
+  --habit-step-4: var(--habit-orange-4);
 }

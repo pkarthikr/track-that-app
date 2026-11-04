@@ -46,6 +46,7 @@ const habit = (id: string, extra: Partial<HabitRecord> = {}): HabitRecord => ({
   name: `Habit ${id}`,
   color: "green",
   weekdays: [0, 1, 2, 3, 4, 5, 6],
+  goal: 1,
   createdAt: "2026-01-01T00:00:00.000Z",
   ...extra,
 });
@@ -132,7 +133,7 @@ describe("handler", () => {
       await store.putHabit("user-1", habit(ID_C));
       await store.putHabit("user-2", habit(ID_Z));
       for (const date of ["2026-10-24", "2026-10-25", "2026-10-29", "2026-10-30"]) {
-        await store.putCompletion("user-1", ID_A, date);
+        await store.putCompletion("user-1", ID_A, date, 1);
       }
 
       const res = await call(store, {
@@ -144,9 +145,39 @@ describe("handler", () => {
       const list = res.json as unknown as Array<Record<string, unknown>>;
       expect(list.map((h) => h.id)).toEqual([ID_A, ID_C]);
       expect(list[0]?.weekDone).toEqual(["2026-10-25", "2026-10-29", "2026-10-30"]);
+      expect(list[0]?.weekCounts).toEqual({ "2026-10-25": 1, "2026-10-29": 1, "2026-10-30": 1 });
+      expect(list[0]?.goal).toBe(1);
       expect(list[0]?.streak).toBe(2);
-      expect(list[1]).toMatchObject({ streak: 0, weekDone: [] });
+      expect(list[1]).toMatchObject({ streak: 0, weekDone: [], weekCounts: {} });
       for (const h of list) expect(h).not.toHaveProperty("archivedAt");
+    });
+  });
+
+  describe("goals", () => {
+    it("counts only days that reached the goal as done and toward the streak", async () => {
+      const store = createMemoryStore();
+      await store.putHabit("user-1", habit(ID_A, { goal: 3 }));
+      await store.putCompletion("user-1", ID_A, "2026-10-28", 3);
+      await store.putCompletion("user-1", ID_A, "2026-10-29", 2);
+      await store.putCompletion("user-1", ID_A, "2026-10-30", 3);
+
+      const list = await call(store, {
+        routeKey: "GET /habits",
+        queryStringParameters: { today: "2026-10-30" },
+      });
+      const [summary] = list.json as unknown as Array<Record<string, unknown>>;
+      expect(summary?.goal).toBe(3);
+      expect(summary?.weekDone).toEqual(["2026-10-28", "2026-10-30"]);
+      expect(summary?.weekCounts).toEqual({ "2026-10-28": 3, "2026-10-29": 2, "2026-10-30": 3 });
+      expect(summary?.streak).toBe(1);
+
+      const detail = await call(store, {
+        routeKey: "GET /habits/{id}",
+        pathParameters: { id: ID_A },
+        queryStringParameters: { today: "2026-10-30" },
+      });
+      expect(detail.json.counts).toEqual({ "2026-10-28": 3, "2026-10-29": 2, "2026-10-30": 3 });
+      expect(detail.json.streak).toBe(1);
     });
   });
 
@@ -159,20 +190,20 @@ describe("handler", () => {
         queryStringParameters: { today: "2026-10-30" },
       });
 
-    it("limits done to the 365 days ending today but counts older days toward the streak", async () => {
+    it("limits counts to the 365 days ending today but counts older days toward the streak", async () => {
       const store = createMemoryStore();
       await store.putHabit("user-1", habit(ID_A));
       // Daily habit done every day from 366 days before today through today.
       const first = new Date("2025-10-29T00:00:00Z");
       for (let i = 0; i <= 366; i++) {
         const d = new Date(first.getTime() + i * 86_400_000).toISOString().slice(0, 10);
-        await store.putCompletion("user-1", ID_A, d);
+        await store.putCompletion("user-1", ID_A, d, 1);
       }
 
       const res = await get(store, ID_A);
 
       expect(res.statusCode).toBe(200);
-      const done = res.json.done as string[];
+      const done = Object.keys(res.json.counts as Record<string, number>).sort();
       expect(done).toHaveLength(365);
       expect(done[0]).toBe("2025-10-31");
       expect(done.at(-1)).toBe("2026-10-30");
@@ -237,12 +268,24 @@ describe("handler", () => {
         name: "Read",
         color: "blue",
         weekdays: [1, 3],
+        goal: 1,
         createdAt: NOW.toISOString(),
       });
       const stored = await store.listHabits("user-1");
       expect(stored).toHaveLength(1);
       expect(stored[0]?.id).toBe(res.json.id);
       expect(await store.listHabits("user-2")).toEqual([]);
+    });
+
+    it("stores the goal", async () => {
+      const store = createMemoryStore();
+      const res = await post(
+        store,
+        JSON.stringify({ name: "Water", color: "teal", weekdays: [1], goal: 10 }),
+      );
+      expect(res.statusCode).toBe(201);
+      expect(res.json.goal).toBe(10);
+      expect(await store.getHabit("user-1", res.json.id as string)).toMatchObject({ goal: 10 });
     });
 
     it.each([
@@ -252,6 +295,9 @@ describe("handler", () => {
       [undefined],
       [JSON.stringify({ name: "x".repeat(61), color: "blue", weekdays: [1] })],
       [JSON.stringify({ name: "x", color: "blue", weekdays: [7] })],
+      [JSON.stringify({ name: "x", color: "blue", weekdays: [1], goal: 0 })],
+      [JSON.stringify({ name: "x", color: "blue", weekdays: [1], goal: 101 })],
+      [JSON.stringify({ name: "x", color: "blue", weekdays: [1], goal: 1.5 })],
     ])("rejects the garbage body %s with 400", async (body) => {
       const store = createMemoryStore();
       const res = await post(store, body);
@@ -294,6 +340,7 @@ describe("handler", () => {
         name: "New",
         color: "pink",
         weekdays: [0, 1, 2, 3, 4, 5, 6],
+        goal: 1,
         createdAt: "2026-01-01T00:00:00.000Z",
       });
       expect(await store.getHabit("user-1", ID_A)).toMatchObject({ name: "New", color: "pink" });
@@ -360,11 +407,12 @@ describe("handler", () => {
   });
 
   describe("completions", () => {
-    const put = (store: HabitStore, id: string, date: string, sub = "user-1") =>
+    const put = (store: HabitStore, id: string, date: string, sub = "user-1", body?: unknown) =>
       call(store, {
         routeKey: "PUT /habits/{id}/completions/{date}",
         sub,
         pathParameters: { id, date },
+        ...(body !== undefined && { body: JSON.stringify(body) }),
       });
     const del = (store: HabitStore, id: string, date: string, sub = "user-1") =>
       call(store, {
@@ -378,16 +426,49 @@ describe("handler", () => {
       await store.putHabit("user-1", habit(ID_A));
       expect((await put(store, ID_A, "2026-10-30")).statusCode).toBe(204);
       expect((await put(store, ID_A, "2026-10-30")).statusCode).toBe(204);
-      expect(await store.listCompletionDates("user-1", ID_A)).toEqual(["2026-10-30"]);
+      expect(await store.listCompletions("user-1", ID_A)).toEqual([
+        { date: "2026-10-30", count: 1 },
+      ]);
     });
+
+    it("PUT without a body completes the whole goal", async () => {
+      const store = createMemoryStore();
+      await store.putHabit("user-1", habit(ID_A, { goal: 4 }));
+      expect((await put(store, ID_A, "2026-10-30")).statusCode).toBe(204);
+      expect(await store.listCompletions("user-1", ID_A)).toEqual([
+        { date: "2026-10-30", count: 4 },
+      ]);
+    });
+
+    it("PUT stores the count and replaces an earlier one", async () => {
+      const store = createMemoryStore();
+      await store.putHabit("user-1", habit(ID_A, { goal: 10 }));
+      expect((await put(store, ID_A, "2026-10-30", "user-1", { count: 3 })).statusCode).toBe(204);
+      expect((await put(store, ID_A, "2026-10-30", "user-1", { count: 4 })).statusCode).toBe(204);
+      expect(await store.listCompletions("user-1", ID_A)).toEqual([
+        { date: "2026-10-30", count: 4 },
+      ]);
+    });
+
+    it.each([[{ count: 0 }], [{ count: 11 }], [{ count: 1.5 }], [{ count: "2" }], [{}], [[]]])(
+      "PUT rejects the body %j with 400",
+      async (body) => {
+        const store = createMemoryStore();
+        await store.putHabit("user-1", habit(ID_A, { goal: 10 }));
+        const res = await put(store, ID_A, "2026-10-30", "user-1", body);
+        expect(res.statusCode).toBe(400);
+        expect(res.json.code).toBe("invalid-request");
+        expect(await store.listCompletions("user-1", ID_A)).toEqual([]);
+      },
+    );
 
     it("DELETE is idempotent", async () => {
       const store = createMemoryStore();
       await store.putHabit("user-1", habit(ID_A));
-      await store.putCompletion("user-1", ID_A, "2026-10-30");
+      await store.putCompletion("user-1", ID_A, "2026-10-30", 1);
       expect((await del(store, ID_A, "2026-10-30")).statusCode).toBe(204);
       expect((await del(store, ID_A, "2026-10-30")).statusCode).toBe(204);
-      expect(await store.listCompletionDates("user-1", ID_A)).toEqual([]);
+      expect(await store.listCompletions("user-1", ID_A)).toEqual([]);
     });
 
     it.each([
@@ -405,7 +486,7 @@ describe("handler", () => {
       expect((await del(store, ID_A, date)).statusCode).toBe(status);
       if (status === 400) {
         expect(putRes.json.code).toBe("invalid-request");
-        expect(await store.listCompletionDates("user-1", ID_A)).toEqual([]);
+        expect(await store.listCompletions("user-1", ID_A)).toEqual([]);
       }
     });
 
@@ -420,7 +501,7 @@ describe("handler", () => {
           expect(res.json.code).toBe("not-found");
         }
         for (const user of ["user-1", "user-2"]) {
-          expect(await store.listCompletionDates(user, id)).toEqual([]);
+          expect(await store.listCompletions(user, id)).toEqual([]);
         }
       }
     });

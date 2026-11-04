@@ -93,3 +93,40 @@
   font-size: 15px;
   line-height: 1;
 }
+
+.habit-row__check {
+  position: relative;
+  color: #ffffff;
+}
+
+.habit-row--counted .habit-row__check {
+  color: var(--habit);
+}
+
+.habit-row--counted.habit-row--done .habit-row__check {
+  color: #ffffff;
+}
+
+.habit-row__ring {
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+}
+
+.habit-row__count {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.habit-row__progress {
+  flex: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}

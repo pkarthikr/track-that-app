@@ -1,8 +1,11 @@
 import type { HabitColor } from "./palette";
 import "./WeekRow.css";
 
-/** "rest" is a day the habit is not scheduled; "upcoming" is after today. */
-export type DayState = "done" | "open" | "rest" | "upcoming";
+/**
+ * "partial" is a day with some completions but not the full goal; "rest" is a
+ * day the habit is not scheduled; "upcoming" is after today.
+ */
+export type DayState = "done" | "partial" | "open" | "rest" | "upcoming";
 export type WeekDays = readonly [
   DayState,
   DayState,
@@ -24,6 +27,7 @@ const DAY_NAMES = [
 ] as const;
 const STATE_LABELS: Record<DayState, string> = {
   done: "done",
+  partial: "partly done",
   open: "not done",
   rest: "rest day",
   upcoming: "upcoming",
@@ -52,7 +56,7 @@ export function WeekRow({
         const name = isToday ? `${DAY_NAMES[i]} (today)` : DAY_NAMES[i];
         const label = `${name}: ${STATE_LABELS[state]}`;
         const classes = ["week-row__cell", `week-row__cell--${state}`];
-        if (state === "done") classes.push(`habit-color--${color}`);
+        if (state === "done" || state === "partial") classes.push(`habit-color--${color}`);
         if (isToday) classes.push("week-row__cell--today");
         if (onToggleDay && state !== "upcoming") {
           classes.push("week-row__cell--button");

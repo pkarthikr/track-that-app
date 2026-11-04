@@ -47,9 +47,12 @@ describe("palette", () => {
     for (const color of HABIT_COLORS) {
       expect(css).toMatch(
         new RegExp(
-          `\\.habit-color--${color}\\s*\\{\\s*--habit:\\s*var\\(--habit-${color}-4\\);\\s*\\}`,
+          `\\.habit-color--${color}\\s*\\{\\s*--habit:\\s*var\\(--habit-${color}-4\\);[^}]*\\}`,
         ),
       );
+      for (const step of [1, 2, 3, 4]) {
+        expect(css).toContain(`--habit-step-${step}: var(--habit-${color}-${step});`);
+      }
     }
   });
 });

@@ -2,7 +2,7 @@ import type { HabitRecord, HabitStore } from "./store";
 
 export function createMemoryStore(): HabitStore {
   const habits = new Map<string, HabitRecord>();
-  const completions = new Set<string>();
+  const completions = new Map<string, number>();
 
   const habitKey = (userId: string, habitId: string) => `${userId}\u0000${habitId}`;
   const completionKey = (userId: string, habitId: string, date: string) =>
@@ -31,15 +31,15 @@ export function createMemoryStore(): HabitStore {
       habits.set(key, updated);
       return { ...updated };
     },
-    async listCompletionDates(userId, habitId) {
+    async listCompletions(userId, habitId) {
       const prefix = completionKey(userId, habitId, "");
       return [...completions]
-        .filter((key) => key.startsWith(prefix))
-        .map((key) => key.slice(prefix.length))
-        .sort();
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, count]) => ({ date: key.slice(prefix.length), count }))
+        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     },
-    async putCompletion(userId, habitId, date) {
-      completions.add(completionKey(userId, habitId, date));
+    async putCompletion(userId, habitId, date, count) {
+      completions.set(completionKey(userId, habitId, date), count);
     },
     async deleteCompletion(userId, habitId, date) {
       completions.delete(completionKey(userId, habitId, date));

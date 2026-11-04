@@ -17,7 +17,8 @@ function habit(overrides: Partial<HabitDetailData> = {}): HabitDetailData {
     archived: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     streak: 3,
-    done: ["2026-10-30", "2026-10-29", "2026-10-28"],
+    goal: 1,
+    counts: { "2026-10-30": 1, "2026-10-29": 1, "2026-10-28": 1 },
     ...overrides,
   } as HabitDetailData;
 }

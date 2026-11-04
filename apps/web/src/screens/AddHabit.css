@@ -191,3 +191,47 @@ fieldset.add-habit__group .add-habit__label {
 .add-habit__home:hover {
   filter: brightness(0.92);
 }
+
+.add-habit__stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.add-habit__step {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 2px solid var(--color-ghost-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.add-habit__step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.add-habit__goal {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+.add-habit__hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+.add-habit__hint--error {
+  color: var(--color-error);
+}

@@ -38,9 +38,21 @@ type Load = "loading" | "error" | "ready";
 
 const SAVE_ERROR = "Couldn't save that. Try again.";
 
-function withDay(habit: HabitSummary, date: DateString, done: boolean): HabitSummary {
+function withCount(habit: HabitSummary, date: DateString, count: number): HabitSummary {
+  const otherCounts = Object.fromEntries(
+    Object.entries(habit.weekCounts).filter(([d]) => d !== date),
+  );
   const rest = habit.weekDone.filter((d) => d !== date);
-  return { ...habit, weekDone: done ? [...rest, date] : rest };
+  return {
+    ...habit,
+    weekCounts: count > 0 ? { ...otherCounts, [date]: count } : otherCounts,
+    weekDone: count >= habit.goal ? [...rest, date] : rest,
+  };
+}
+
+/** Each tap logs one more completion; tapping a finished day clears it. */
+function nextCount(count: number, goal: number): number {
+  return count >= goal ? 0 : count + 1;
 }
 
 export function Home({
@@ -126,11 +138,13 @@ export function Home({
   }
 
   async function toggleDay(habit: HabitSummary, index: number) {
-    const date = weekCells(habit, today).dates[index];
+    const { dates, counts } = weekCells(habit, today);
+    const date = dates[index];
     if (date === undefined || date > today || pending.current.has(habit.id)) return;
-    const wasDone = habit.weekDone.includes(date);
-    const apply = (done: boolean) =>
-      setHabits((list) => list.map((h) => (h.id === habit.id ? withDay(h, date, done) : h)));
+    const before = counts[index] ?? 0;
+    const after = nextCount(before, habit.goal);
+    const apply = (count: number) =>
+      setHabits((list) => list.map((h) => (h.id === habit.id ? withCount(h, date, count) : h)));
 
     latestLoad.current++; // any list request already in flight predates this write
     if (loadInFlight.current) {
@@ -140,11 +154,13 @@ export function Home({
     }
     setPending(habit.id, true);
     setSaveFailed(false);
-    apply(!wasDone);
+    apply(after);
     try {
-      await (wasDone ? api.undoCompletion(habit.id, date) : api.logCompletion(habit.id, date));
+      await (after === 0
+        ? api.undoCompletion(habit.id, date)
+        : api.logCompletion(habit.id, date, after));
     } catch {
-      apply(wasDone);
+      apply(before);
       setSaveFailed(true);
       setPending(habit.id, false);
       // The write may have been applied despite the error: always resync.
@@ -221,7 +237,7 @@ export function Home({
           {load === "ready" && !empty && (
             <ul className="home__habits">
               {habits.map((habit) => {
-                const { days, todayIndex } = weekCells(habit, today);
+                const { days, counts, todayIndex } = weekCells(habit, today);
                 return (
                   <HabitRow
                     key={habit.id}
@@ -229,6 +245,8 @@ export function Home({
                     color={habit.color}
                     active={habit.weekdays.includes(todayIndex as Weekday)}
                     streak={habit.streak}
+                    goal={habit.goal}
+                    count={counts[todayIndex] ?? 0}
                     days={days}
                     todayIndex={todayIndex}
                     pending={pendingIds.has(habit.id)}

@@ -12,6 +12,7 @@ const CREATED: Habit = {
   name: "Gym",
   color: "coral",
   weekdays: [1, 3, 5],
+  goal: 1,
   createdAt: "2026-10-30T00:00:00.000Z",
 };
 
@@ -139,6 +140,56 @@ describe("AddHabit", () => {
       name: "Gym",
       color: "coral",
       weekdays: [1, 3, 5],
+      goal: 1,
+    });
+  });
+
+  describe("times per day", () => {
+    const goalInput = () => screen.getByLabelText("Times per day") as HTMLInputElement;
+
+    function prepare() {
+      const api = renderAddHabit();
+      fillIn("Drink water");
+      fireEvent.click(screen.getByRole("button", { name: "Monday" }));
+      return api;
+    }
+
+    it("starts at one", () => {
+      renderAddHabit();
+      expect(goalInput().value).toBe("1");
+      expect(screen.getByRole("button", { name: "Fewer times per day" })).toHaveProperty(
+        "disabled",
+        true,
+      );
+    });
+
+    it("saves a typed goal", async () => {
+      const api = prepare();
+      fireEvent.change(goalInput(), { target: { value: "10" } });
+      fireEvent.click(addButton());
+      await screen.findByRole("dialog", { name: "Added" });
+      expect(api.createHabit).toHaveBeenCalledWith(expect.objectContaining({ goal: 10 }));
+    });
+
+    it("steps the goal up and down", async () => {
+      const api = prepare();
+      const more = screen.getByRole("button", { name: "More times per day" });
+      fireEvent.click(more);
+      fireEvent.click(more);
+      fireEvent.click(more);
+      fireEvent.click(screen.getByRole("button", { name: "Fewer times per day" }));
+      expect(goalInput().value).toBe("3");
+      fireEvent.click(addButton());
+      await screen.findByRole("dialog", { name: "Added" });
+      expect(api.createHabit).toHaveBeenCalledWith(expect.objectContaining({ goal: 3 }));
+    });
+
+    it.each(["0", "", "abc", "1.5", "101", "-2"])("blocks saving with %j", (value) => {
+      const api = prepare();
+      fireEvent.change(goalInput(), { target: { value } });
+      expect(addButton()).toHaveProperty("disabled", true);
+      expect(screen.getByText("Enter a whole number from 1 to 100.")).toBeTruthy();
+      expect(api.createHabit).not.toHaveBeenCalled();
     });
   });
 

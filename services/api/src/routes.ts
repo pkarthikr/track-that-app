@@ -1,10 +1,16 @@
 import { addDays, currentStreak, weekStart } from "@trackthat/core";
-import type { DateString, HabitDetail, HabitSummary } from "@trackthat/shared";
-import { isDateString, MAX_HABITS, parseHabitPatch, parseNewHabit } from "@trackthat/shared";
+import type { DateString, DayCounts, HabitDetail, HabitSummary } from "@trackthat/shared";
+import {
+  isDateString,
+  MAX_HABITS,
+  parseCompletionCount,
+  parseHabitPatch,
+  parseNewHabit,
+} from "@trackthat/shared";
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from "aws-lambda";
 
 import { HttpError, json } from "./http";
-import type { HabitRecord, HabitStore } from "./store";
+import type { Completion, HabitRecord, HabitStore } from "./store";
 import { isHabitId, newHabitId } from "./ulid";
 
 export interface RouteContext {
@@ -27,8 +33,17 @@ function requireToday(ctx: RouteContext): DateString {
 }
 
 /** The public shape of a habit: everything except `archivedAt`. */
-function publicFields({ id, name, color, weekdays, createdAt }: HabitRecord) {
-  return { id, name, color, weekdays, createdAt };
+function publicFields({ id, name, color, weekdays, goal, createdAt }: HabitRecord) {
+  return { id, name, color, weekdays, goal, createdAt };
+}
+
+/** The dates whose count reached the goal. */
+function reachedGoal(completions: readonly Completion[], goal: number): DateString[] {
+  return completions.filter((c) => c.count >= goal).map((c) => c.date);
+}
+
+function countsOf(completions: readonly Completion[]): DayCounts {
+  return Object.fromEntries(completions.map((c) => [c.date, c.count]));
 }
 
 async function listHabits(ctx: RouteContext) {
@@ -37,11 +52,17 @@ async function listHabits(ctx: RouteContext) {
   const habits = (await ctx.store.listHabits(ctx.userId)).filter((h) => h.archivedAt === undefined);
   const summaries: HabitSummary[] = await Promise.all(
     habits.map(async (habit) => {
-      const done = await ctx.store.listCompletionDates(ctx.userId, habit.id);
+      const all = await ctx.store.listCompletions(ctx.userId, habit.id);
+      const week = all.filter((c) => c.date >= firstOfWeek);
       return {
         ...publicFields(habit),
-        streak: currentStreak({ weekdays: habit.weekdays, done, today }),
-        weekDone: done.filter((d) => d >= firstOfWeek),
+        streak: currentStreak({
+          weekdays: habit.weekdays,
+          done: reachedGoal(all, habit.goal),
+          today,
+        }),
+        weekDone: reachedGoal(week, habit.goal),
+        weekCounts: countsOf(week),
       };
     }),
   );
@@ -72,12 +93,16 @@ function parseBody(ctx: RouteContext): unknown {
 async function getHabit(ctx: RouteContext) {
   const today = requireToday(ctx);
   const habit = await requireActiveHabit(ctx);
-  const all = await ctx.store.listCompletionDates(ctx.userId, habit.id);
+  const all = await ctx.store.listCompletions(ctx.userId, habit.id);
   const first = addDays(today, -(DETAIL_DAYS - 1));
   const detail: HabitDetail = {
     ...publicFields(habit),
-    streak: currentStreak({ weekdays: habit.weekdays, done: all, today }),
-    done: all.filter((d) => d >= first && d <= today),
+    streak: currentStreak({
+      weekdays: habit.weekdays,
+      done: reachedGoal(all, habit.goal),
+      today,
+    }),
+    counts: countsOf(all.filter((c) => c.date >= first && c.date <= today)),
   };
   return json(200, detail);
 }
@@ -133,7 +158,11 @@ function requireCompletionDate(ctx: RouteContext): DateString {
 async function putCompletion(ctx: RouteContext) {
   const date = requireCompletionDate(ctx);
   const habit = await requireActiveHabit(ctx);
-  await ctx.store.putCompletion(ctx.userId, habit.id, date);
+  // No body means "done for the day": the full goal.
+  const body = ctx.event.body ? parseBody(ctx) : undefined;
+  const count = parseCompletionCount(body, habit.goal);
+  if (!count.ok) throw new HttpError("invalid-request", count.message);
+  await ctx.store.putCompletion(ctx.userId, habit.id, date, count.value);
   return { statusCode: 204 };
 }
 

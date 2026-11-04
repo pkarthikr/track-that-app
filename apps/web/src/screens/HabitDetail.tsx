@@ -118,7 +118,7 @@ export function HabitDetail({
     <main className="habit-detail">
       <h1 className="habit-detail__title">{habit.name}</h1>
       <p className="habit-detail__streak">Current streak: {habit.streak}</p>
-      <Heatmap color={habit.color} done={habit.done} today={today} />
+      <Heatmap color={habit.color} counts={habit.counts} goal={habit.goal} today={today} />
       <section className="habit-detail__archive">
         {confirming ? (
           <>

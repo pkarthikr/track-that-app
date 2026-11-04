@@ -5,8 +5,14 @@ export interface HabitRecord {
   name: string;
   color: HabitColor;
   weekdays: Weekday[];
+  goal: number;
   createdAt: string;
   archivedAt?: string;
+}
+
+export interface Completion {
+  date: DateString;
+  count: number;
 }
 
 export interface HabitStore {
@@ -20,8 +26,9 @@ export interface HabitStore {
     habitId: string,
     changes: Partial<Pick<HabitRecord, "name" | "color" | "archivedAt">>,
   ): Promise<HabitRecord | undefined>;
-  /** Completion dates for the habit, ascending, across all pages. */
-  listCompletionDates(userId: string, habitId: string): Promise<DateString[]>;
-  putCompletion(userId: string, habitId: string, date: DateString): Promise<void>;
+  /** Completions for the habit, ascending by date, across all pages. */
+  listCompletions(userId: string, habitId: string): Promise<Completion[]>;
+  /** Sets the number of completions on a day, replacing any earlier count. */
+  putCompletion(userId: string, habitId: string, date: DateString, count: number): Promise<void>;
   deleteCompletion(userId: string, habitId: string, date: DateString): Promise<void>;
 }

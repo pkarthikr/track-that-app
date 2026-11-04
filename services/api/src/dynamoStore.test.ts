@@ -43,6 +43,7 @@ describe("dynamo store", () => {
       name: "Read",
       color: "blue",
       weekdays: [1],
+      goal: 3,
       createdAt: "2026-10-30T00:00:00.000Z",
     });
     const cmd = commands[0]!;
@@ -62,11 +63,17 @@ describe("dynamo store", () => {
       name: "Read",
       color: "blue",
       weekdays: [1],
+      goal: 1,
       createdAt: "c",
     });
     expect(commands[0]).toBeInstanceOf(GetCommand);
     expect(commands[0]!.input.Key).toEqual({ PK: "USER#u1", SK: "HABIT#h1" });
     expect(await store.getHabit("u1", "h2")).toBeUndefined();
+  });
+
+  it("keeps the stored goal", async () => {
+    const { client } = fakeClient([{ Item: { ...stored, goal: 8 } }]);
+    expect(await createDynamoStore(client, "T").getHabit("u1", "h1")).toMatchObject({ goal: 8 });
   });
 
   it("lists habits with the HABIT# prefix", async () => {
@@ -95,10 +102,11 @@ describe("dynamo store", () => {
 
   it("puts a completion under the COMP# sort key", async () => {
     const { client, commands } = fakeClient();
-    await createDynamoStore(client, "T").putCompletion("u1", "h1", "2026-10-30");
+    await createDynamoStore(client, "T").putCompletion("u1", "h1", "2026-10-30", 4);
     expect(commands[0]).toBeInstanceOf(PutCommand);
     expect(commands[0]!.input.Item.PK).toBe("USER#u1");
     expect(commands[0]!.input.Item.SK).toBe("COMP#h1#2026-10-30");
+    expect(commands[0]!.input.Item.count).toBe(4);
   });
 
   it("deletes a completion by key", async () => {
@@ -108,16 +116,20 @@ describe("dynamo store", () => {
     expect(commands[0]!.input.Key).toEqual({ PK: "USER#u1", SK: "COMP#h1#2026-10-30" });
   });
 
-  it("lists completion dates across pages and strips the prefix", async () => {
+  it("lists completions across pages, stripping the prefix and defaulting a missing count to 1", async () => {
     const { client, commands } = fakeClient([
       {
-        Items: [{ SK: "COMP#h1#2026-10-28" }, { SK: "COMP#h1#2026-10-29" }],
+        Items: [{ SK: "COMP#h1#2026-10-28", count: 3 }, { SK: "COMP#h1#2026-10-29" }],
         LastEvaluatedKey: { PK: "USER#u1", SK: "COMP#h1#2026-10-29" },
       },
-      { Items: [{ SK: "COMP#h1#2026-10-30" }] },
+      { Items: [{ SK: "COMP#h1#2026-10-30", count: 2 }] },
     ]);
-    const dates = await createDynamoStore(client, "T").listCompletionDates("u1", "h1");
-    expect(dates).toEqual(["2026-10-28", "2026-10-29", "2026-10-30"]);
+    const completions = await createDynamoStore(client, "T").listCompletions("u1", "h1");
+    expect(completions).toEqual([
+      { date: "2026-10-28", count: 3 },
+      { date: "2026-10-29", count: 1 },
+      { date: "2026-10-30", count: 2 },
+    ]);
     expect(commands).toHaveLength(2);
     expect(commands[0]!.input.KeyConditionExpression).toContain("begins_with(SK, :p)");
     expect(commands[0]!.input.ExpressionAttributeValues[":p"]).toBe("COMP#h1#");

@@ -17,7 +17,8 @@ const completionPrefix = (habitId: string) => `COMP#${habitId}#`;
 function toHabit(item: Record<string, unknown>): HabitRecord {
   const { SK, ...rest } = item;
   delete rest.PK;
-  return { ...rest, id: String(SK).slice(HABIT_PREFIX.length) } as HabitRecord;
+  // Habits saved before goals existed have no goal: they want one completion a day.
+  return { goal: 1, ...rest, id: String(SK).slice(HABIT_PREFIX.length) } as HabitRecord;
 }
 
 export function createDynamoStore(
@@ -101,17 +102,21 @@ export function createDynamoStore(
       }
     },
 
-    async listCompletionDates(userId, habitId) {
+    async listCompletions(userId, habitId) {
       const prefix = completionPrefix(habitId);
       const items = await queryPrefix(userId, prefix);
-      return items.map((item) => String(item.SK).slice(prefix.length));
+      return items.map((item) => ({
+        date: String(item.SK).slice(prefix.length),
+        // Completions saved before goals existed have no count: they were one.
+        count: typeof item.count === "number" ? item.count : 1,
+      }));
     },
 
-    async putCompletion(userId, habitId, date) {
+    async putCompletion(userId, habitId, date, count) {
       await client.send(
         new PutCommand({
           TableName: tableName,
-          Item: { PK: userKey(userId), SK: `${completionPrefix(habitId)}${date}` },
+          Item: { PK: userKey(userId), SK: `${completionPrefix(habitId)}${date}`, count },
         }),
       );
     },
