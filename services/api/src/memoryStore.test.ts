@@ -8,6 +8,7 @@ function habit(id: string, extra: Partial<HabitRecord> = {}): HabitRecord {
     name: `Habit ${id}`,
     color: "green",
     weekdays: [1, 3, 5],
+    goal: 1,
     createdAt: "2026-10-30T00:00:00.000Z",
     ...extra,
   };
@@ -42,9 +43,16 @@ describe("memory store", () => {
 
   it("stores a completion date once", async () => {
     const store = createMemoryStore();
-    await store.putCompletion("a", "h1", "2026-10-30");
-    await store.putCompletion("a", "h1", "2026-10-30");
-    expect(await store.listCompletionDates("a", "h1")).toEqual(["2026-10-30"]);
+    await store.putCompletion("a", "h1", "2026-10-30", 1);
+    await store.putCompletion("a", "h1", "2026-10-30", 1);
+    expect(await store.listCompletions("a", "h1")).toEqual([{ date: "2026-10-30", count: 1 }]);
+  });
+
+  it("replaces the count for a day", async () => {
+    const store = createMemoryStore();
+    await store.putCompletion("a", "h1", "2026-10-30", 2);
+    await store.putCompletion("a", "h1", "2026-10-30", 5);
+    expect(await store.listCompletions("a", "h1")).toEqual([{ date: "2026-10-30", count: 5 }]);
   });
 
   it("resolves when deleting a missing completion", async () => {
@@ -54,17 +62,20 @@ describe("memory store", () => {
 
   it("deletes a completion", async () => {
     const store = createMemoryStore();
-    await store.putCompletion("a", "h1", "2026-10-30");
+    await store.putCompletion("a", "h1", "2026-10-30", 1);
     await store.deleteCompletion("a", "h1", "2026-10-30");
-    expect(await store.listCompletionDates("a", "h1")).toEqual([]);
+    expect(await store.listCompletions("a", "h1")).toEqual([]);
   });
 
-  it("lists completion dates ascending, scoped to habit and user", async () => {
+  it("lists completions ascending, scoped to habit and user", async () => {
     const store = createMemoryStore();
-    await store.putCompletion("a", "h1", "2026-10-30");
-    await store.putCompletion("a", "h1", "2026-10-28");
-    await store.putCompletion("a", "h2", "2026-10-01");
-    await store.putCompletion("b", "h1", "2026-09-01");
-    expect(await store.listCompletionDates("a", "h1")).toEqual(["2026-10-28", "2026-10-30"]);
+    await store.putCompletion("a", "h1", "2026-10-30", 1);
+    await store.putCompletion("a", "h1", "2026-10-28", 3);
+    await store.putCompletion("a", "h2", "2026-10-01", 1);
+    await store.putCompletion("b", "h1", "2026-09-01", 1);
+    expect(await store.listCompletions("a", "h1")).toEqual([
+      { date: "2026-10-28", count: 3 },
+      { date: "2026-10-30", count: 1 },
+    ]);
   });
 });

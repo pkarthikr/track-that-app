@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isDateString, parseHabitPatch, parseNewHabit } from "./habits";
+import { isDateString, parseCompletionCount, parseHabitPatch, parseNewHabit } from "./habits";
 
 describe("isDateString", () => {
   it("accepts real dates including leap days", () => {
@@ -19,7 +19,14 @@ describe("parseNewHabit", () => {
   it("trims, deduplicates and sorts", () => {
     expect(parseNewHabit({ name: "  Gym ", color: "coral", weekdays: [5, 1, 3, 1] })).toEqual({
       ok: true,
-      value: { name: "Gym", color: "coral", weekdays: [1, 3, 5] },
+      value: { name: "Gym", color: "coral", weekdays: [1, 3, 5], goal: 1 },
+    });
+  });
+
+  it("accepts a goal", () => {
+    expect(parseNewHabit({ name: "Water", color: "blue", weekdays: [1], goal: 10 })).toEqual({
+      ok: true,
+      value: { name: "Water", color: "blue", weekdays: [1], goal: 10 },
     });
   });
 
@@ -42,9 +49,31 @@ describe("parseNewHabit", () => {
     ["missing name", { color: "blue", weekdays: [1] }],
     ["missing color", { name: "Gym", weekdays: [1] }],
     ["missing weekdays", { name: "Gym", color: "blue" }],
+    ["goal 0", { name: "Gym", color: "blue", weekdays: [1], goal: 0 }],
+    ["goal 101", { name: "Gym", color: "blue", weekdays: [1], goal: 101 }],
+    ["goal 2.5", { name: "Gym", color: "blue", weekdays: [1], goal: 2.5 }],
+    ["goal string", { name: "Gym", color: "blue", weekdays: [1], goal: "3" }],
   ])("rejects %s", (_label, body) => {
     expect(parseNewHabit(body).ok).toBe(false);
   });
+});
+
+describe("parseCompletionCount", () => {
+  it("defaults to the goal when there is no body", () => {
+    expect(parseCompletionCount(undefined, 8)).toEqual({ ok: true, value: 8 });
+  });
+
+  it("accepts a count up to the goal", () => {
+    expect(parseCompletionCount({ count: 8 }, 8)).toEqual({ ok: true, value: 8 });
+    expect(parseCompletionCount({ count: 1 }, 8)).toEqual({ ok: true, value: 1 });
+  });
+
+  it.each([{ count: 0 }, { count: 9 }, { count: 1.5 }, { count: "2" }, {}, [], null])(
+    "rejects %j",
+    (body) => {
+      expect(parseCompletionCount(body, 8).ok).toBe(false);
+    },
+  );
 });
 
 describe("parseHabitPatch", () => {

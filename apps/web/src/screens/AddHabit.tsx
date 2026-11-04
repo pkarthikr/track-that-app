@@ -1,4 +1,4 @@
-import { parseNewHabit } from "@trackthat/shared";
+import { MAX_GOAL, parseNewHabit } from "@trackthat/shared";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Button } from "../design/Button";
@@ -38,6 +38,7 @@ export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi;
   usePageTitle("Track That: New habit");
   const [name, setName] = useState("");
   const [days, setDays] = useState<ReadonlySet<number>>(new Set());
+  const [goalText, setGoalText] = useState("1");
   const [color, setColor] = useState<HabitColor>("green");
   const [added, setAdded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,7 +47,9 @@ export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi;
   const inFlight = useRef(false);
   const mounted = useRef(true);
 
-  const canSave = name.trim().length > 0 && days.size > 0;
+  const goal = Number(goalText);
+  const goalValid = /^\d+$/.test(goalText) && goal >= 1 && goal <= MAX_GOAL;
+  const canSave = name.trim().length > 0 && days.size > 0 && goalValid;
 
   useEffect(() => {
     mounted.current = true;
@@ -71,7 +74,7 @@ export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi;
     event.preventDefault();
     if (!canSave || added || inFlight.current) return;
     setError(null);
-    const parsed = parseNewHabit({ name, color, weekdays: [...days].sort((a, b) => a - b) });
+    const parsed = parseNewHabit({ name, color, weekdays: [...days].sort((a, b) => a - b), goal });
     if (!parsed.ok) {
       setError(parsed.message);
       return;
@@ -127,6 +130,52 @@ export function AddHabit({ api, today = new Date().getDay() }: { api: HabitsApi;
               ))}
             </div>
           </fieldset>
+
+          <div className="add-habit__group">
+            <label className="add-habit__label" htmlFor="habit-goal">
+              Times per day
+            </label>
+            <div className="add-habit__stepper">
+              <button
+                type="button"
+                className="add-habit__step"
+                aria-label="Fewer times per day"
+                disabled={!goalValid || goal <= 1}
+                onClick={() => setGoalText(String(goal - 1))}
+              >
+                −
+              </button>
+              <input
+                id="habit-goal"
+                className="add-habit__input add-habit__goal"
+                type="text"
+                inputMode="numeric"
+                value={goalText}
+                aria-invalid={!goalValid}
+                aria-describedby="habit-goal-hint"
+                onChange={(event) => setGoalText(event.target.value.trim())}
+              />
+              <button
+                type="button"
+                className="add-habit__step"
+                aria-label="More times per day"
+                disabled={!goalValid || goal >= MAX_GOAL}
+                onClick={() => setGoalText(String(goal + 1))}
+              >
+                +
+              </button>
+            </div>
+            <p
+              id="habit-goal-hint"
+              className={goalValid ? "add-habit__hint" : "add-habit__hint add-habit__hint--error"}
+            >
+              {goalValid
+                ? goal === 1
+                  ? "Tap once to mark it done."
+                  : `Tap ${goal} times to finish the day, e.g. 8 glasses of water.`
+                : `Enter a whole number from 1 to ${MAX_GOAL}.`}
+            </p>
+          </div>
 
           <fieldset className="add-habit__group">
             <legend className="add-habit__label">Color</legend>

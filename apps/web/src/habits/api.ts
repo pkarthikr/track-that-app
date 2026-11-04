@@ -13,7 +13,8 @@ export interface HabitsApi {
   getHabit(id: string, today: DateString): Promise<HabitDetail>;
   createHabit(input: NewHabit): Promise<Habit>;
   updateHabit(id: string, changes: HabitPatch): Promise<Habit>;
-  logCompletion(id: string, date: DateString): Promise<void>;
+  /** Sets how many times the habit was done on `date`; 1 to the habit's goal. */
+  logCompletion(id: string, date: DateString, count: number): Promise<void>;
   undoCompletion(id: string, date: DateString): Promise<void>;
 }
 
@@ -95,8 +96,8 @@ export function createHabitsApi(options: {
     getHabit: (id, today) => json("GET", `${habitPath(id)}?today=${encodeURIComponent(today)}`),
     createHabit: (input) => json("POST", "/habits", input),
     updateHabit: (id, changes) => json("PATCH", habitPath(id), changes),
-    async logCompletion(id, date) {
-      await send("PUT", completionPath(id, date));
+    async logCompletion(id, date, count) {
+      await send("PUT", completionPath(id, date), { count });
     },
     async undoCompletion(id, date) {
       await send("DELETE", completionPath(id, date));

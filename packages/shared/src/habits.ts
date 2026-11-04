@@ -7,29 +7,41 @@ export type DateString = string;
 
 export const MAX_HABITS = 50;
 export const NAME_MAX_LENGTH = 60;
+/** The most completions a habit can ask for in one day. */
+export const MAX_GOAL = 100;
 
 export interface Habit {
   id: string;
   name: string;
   color: HabitColor;
   weekdays: Weekday[];
+  /** Completions wanted on each scheduled day; 1 for a simple done/not-done habit. */
+  goal: number;
   createdAt: string;
 }
 
+/** Completions logged per day. A day is done once its count reaches the habit's goal. */
+export type DayCounts = Record<DateString, number>;
+
 export interface HabitSummary extends Habit {
   streak: number;
+  /** Days this week that reached the goal. */
   weekDone: DateString[];
+  /** Completions logged on each day of this week that has any. */
+  weekCounts: DayCounts;
 }
 
 export interface HabitDetail extends Habit {
   streak: number;
-  done: DateString[];
+  /** Completions logged on each day in the last 365 days that has any. */
+  counts: DayCounts;
 }
 
 export interface NewHabit {
   name: string;
   color: HabitColor;
   weekdays: Weekday[];
+  goal: number;
 }
 
 export interface HabitPatch {
@@ -65,6 +77,25 @@ function isWeekday(value: unknown): value is Weekday {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 6;
 }
 
+function parseGoal(value: unknown): Result<number> {
+  if (value === undefined) return { ok: true, value: 1 };
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > MAX_GOAL) {
+    return { ok: false, message: `goal must be a whole number from 1 to ${MAX_GOAL}` };
+  }
+  return { ok: true, value };
+}
+
+/** The completion count from a request body: absent means the full goal. */
+export function parseCompletionCount(body: unknown, goal: number): Result<number> {
+  if (body === undefined) return { ok: true, value: goal };
+  if (!isRecord(body)) return { ok: false, message: "body must be an object" };
+  const { count } = body;
+  if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > goal) {
+    return { ok: false, message: `count must be a whole number from 1 to ${goal}` };
+  }
+  return { ok: true, value: count };
+}
+
 function parseName(value: unknown): Result<string> {
   if (typeof value !== "string") return { ok: false, message: "name must be a string" };
   const name = value.trim();
@@ -89,8 +120,14 @@ export function parseNewHabit(body: unknown): Result<NewHabit> {
     return { ok: false, message: "weekdays must be a non-empty list of integers 0 to 6" };
   }
 
+  const goal = parseGoal(body.goal);
+  if (!goal.ok) return goal;
+
   const unique = [...new Set<Weekday>(weekdays)].sort((a, b) => a - b);
-  return { ok: true, value: { name: name.value, color: body.color, weekdays: unique } };
+  return {
+    ok: true,
+    value: { name: name.value, color: body.color, weekdays: unique, goal: goal.value },
+  };
 }
 
 export function parseHabitPatch(body: unknown): Result<HabitPatch> {

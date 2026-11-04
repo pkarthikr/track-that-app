@@ -17,6 +17,18 @@
   background: var(--color-empty);
 }
 
-.heatmap__cell[data-done="true"] {
-  background: var(--habit);
+.heatmap__cell[data-level="1"] {
+  background: var(--habit-step-1);
+}
+
+.heatmap__cell[data-level="2"] {
+  background: var(--habit-step-2);
+}
+
+.heatmap__cell[data-level="3"] {
+  background: var(--habit-step-3);
+}
+
+.heatmap__cell[data-level="4"] {
+  background: var(--habit-step-4);
 }

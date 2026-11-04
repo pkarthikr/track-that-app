@@ -84,10 +84,11 @@ describe("createHabitsApi", () => {
 
   it("logs a completion and resolves on 204 without parsing", async () => {
     const { api, fetchFake } = setup(new Response(null, { status: 204 }));
-    await expect(api.logCompletion("h1", "2026-10-30")).resolves.toBeUndefined();
+    await expect(api.logCompletion("h1", "2026-10-30", 3)).resolves.toBeUndefined();
     const { url, init } = lastCall(fetchFake);
     expect(url).toBe(`${BASE}/habits/h1/completions/2026-10-30`);
     expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ count: 3 });
   });
 
   it("undoes a completion", async () => {
@@ -100,7 +101,7 @@ describe("createHabitsApi", () => {
 
   it("encodes the habit id in the path", async () => {
     const { api, fetchFake } = setup(new Response(null, { status: 204 }));
-    await api.logCompletion("a/b", "2026-10-30");
+    await api.logCompletion("a/b", "2026-10-30", 1);
     expect(lastCall(fetchFake).url).toBe(`${BASE}/habits/a%2Fb/completions/2026-10-30`);
   });
 

@@ -9,16 +9,23 @@ import { Home } from "./Home";
 const TODAY = "2026-10-30";
 
 function habit(overrides: Partial<HabitSummary> = {}): HabitSummary {
-  return {
+  const merged: HabitSummary = {
     id: "h1",
     name: "Read 20 pages",
     color: "green",
     weekdays: [0, 1, 2, 3, 4, 5, 6],
+    goal: 1,
     createdAt: "2026-10-01T00:00:00.000Z",
     streak: 0,
     weekDone: [],
+    weekCounts: {},
     ...overrides,
   };
+  // Days listed as done have reached the goal unless the test gives counts itself.
+  if (!overrides.weekCounts) {
+    merged.weekCounts = Object.fromEntries(merged.weekDone.map((date) => [date, merged.goal]));
+  }
+  return merged;
 }
 
 function fakeApi(habits: HabitSummary[] = [habit()]): HabitsApi {
@@ -143,6 +150,64 @@ describe("Home", () => {
     });
   });
 
+  describe("a habit with a daily goal", () => {
+    const water = (overrides: Partial<HabitSummary> = {}) =>
+      habit({ id: "w1", name: "Drink water", goal: 3, ...overrides });
+    const tap = () => screen.getByRole("button", { name: /^Log Drink water/ });
+
+    it("shows progress toward the goal", async () => {
+      renderHome(fakeApi([water({ weekCounts: { [TODAY]: 2 } })]));
+      await screen.findByText("Drink water");
+      expect(tap().getAttribute("aria-label")).toBe("Log Drink water: 2 of 3");
+      expect(screen.getByText("2/3")).toBeTruthy();
+    });
+
+    it("logs one more completion per tap, ending at the goal", async () => {
+      const api = fakeApi([water({ weekCounts: { [TODAY]: 1 } })]);
+      renderHome(api);
+      await screen.findByText("Drink water");
+      vi.mocked(api.listHabits).mockResolvedValue([water({ weekCounts: { [TODAY]: 2 } })]);
+      fireEvent.click(tap());
+      expect(api.logCompletion).toHaveBeenCalledWith("w1", TODAY, 2);
+      await waitFor(() => expect(tap()).toHaveProperty("disabled", false));
+      expect(tap().getAttribute("aria-label")).toBe("Log Drink water: 2 of 3");
+    });
+
+    it("shows the day as done once the goal is reached", async () => {
+      const api = fakeApi([water({ weekCounts: { [TODAY]: 2 } })]);
+      renderHome(api);
+      await screen.findByText("Drink water");
+      fireEvent.click(tap());
+      expect(api.logCompletion).toHaveBeenCalledWith("w1", TODAY, 3);
+      expect(cell("Friday (today): done")).toBeTruthy();
+    });
+
+    it("marks a partly finished day as partly done in the week", async () => {
+      renderHome(fakeApi([water({ weekCounts: { [TODAY]: 1 } })]));
+      await screen.findByText("Drink water");
+      expect(cell("Friday (today): partly done")).toBeTruthy();
+    });
+
+    it("clears the day when tapped after the goal is reached", async () => {
+      const api = fakeApi([water({ weekDone: [TODAY], weekCounts: { [TODAY]: 3 } })]);
+      renderHome(api);
+      await screen.findByText("Drink water");
+      fireEvent.click(screen.getByRole("button", { name: "Log Drink water: 3 of 3" }));
+      expect(api.undoCompletion).toHaveBeenCalledWith("w1", TODAY);
+      expect(api.logCompletion).not.toHaveBeenCalled();
+    });
+
+    it("puts the count back when saving fails", async () => {
+      const api = fakeApi([water({ weekCounts: { [TODAY]: 1 } })]);
+      vi.mocked(api.logCompletion).mockRejectedValueOnce(new Error("offline"));
+      renderHome(api);
+      await screen.findByText("Drink water");
+      fireEvent.click(tap());
+      await screen.findByRole("alert");
+      expect(tap().getAttribute("aria-label")).toBe("Log Drink water: 1 of 3");
+    });
+  });
+
   describe("ticking", () => {
     it("logs today, shows it done at once, then reloads", async () => {
       const api = fakeApi();
@@ -152,7 +217,7 @@ describe("Home", () => {
       await screen.findByText("Read 20 pages");
 
       fireEvent.click(check());
-      expect(api.logCompletion).toHaveBeenCalledWith("h1", TODAY);
+      expect(api.logCompletion).toHaveBeenCalledWith("h1", TODAY, 1);
       expect(check().getAttribute("aria-pressed")).toBe("true");
       expect(cell("Friday (today): done")).toBeTruthy();
       expect(api.listHabits).toHaveBeenCalledTimes(1);
@@ -181,7 +246,7 @@ describe("Home", () => {
       renderHome(api);
       await screen.findByText("Read 20 pages");
       fireEvent.click(cell("Tuesday: not done"));
-      expect(api.logCompletion).toHaveBeenCalledWith("h1", "2026-10-27");
+      expect(api.logCompletion).toHaveBeenCalledWith("h1", "2026-10-27", 1);
       expect(cell("Tuesday: done")).toBeTruthy();
       await waitFor(() => expect(check()).toHaveProperty("disabled", false));
     });

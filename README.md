@@ -1,6 +1,6 @@
 # TrackThat
 
-TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. Every package builds, typechecks, lints, and runs tests. The features are a landing page, a features page, email and password sign-up and sign-in (backed by a Cognito user pool defined in CDK), and habits: create a habit, tick days off on Home, and see a streak and a 365-day heatmap on the habit page. Habits are stored by an API in DynamoDB (see [Data model](#data-model)). The stacks are deployed from GitHub Actions (see [Deploying](#deploying)).
+TrackThat is a habit tracker. This repository is the monorepo for its web app, API, shared code, and AWS infrastructure. Every package builds, typechecks, lints, and runs tests. The features are a landing page, a features page, email and password sign-up and sign-in (backed by a Cognito user pool defined in CDK), and habits: create a habit, set how many times a day it should be done (a goal of 1 is a simple tick, 10 is ten glasses of water), tap its circle on Home once per completion, and see a streak and a 365-day heatmap on the habit page whose shade deepens as a day gets closer to the goal. Habits are stored by an API in DynamoDB (see [Data model](#data-model)). The stacks are deployed from GitHub Actions (see [Deploying](#deploying)).
 
 ## Folder Layout
 
@@ -69,7 +69,7 @@ Only the Deploy workflow should publish `TrackThatWeb`. A local build bakes in w
 
 ## Data model
 
-All data lives in one DynamoDB table (`ApiStack`), keyed by `PK` and `SK`. Every item of a user shares the partition key `USER#<sub>`, where `<sub>` is the Cognito user id. The sort key is `HABIT#<ulid>` for a habit and `COMP#<habitId>#<yyyy-mm-dd>` for one completed day of a habit. The table is retained when the stack is deleted and has point-in-time recovery enabled.
+All data lives in one DynamoDB table (`ApiStack`), keyed by `PK` and `SK`. Every item of a user shares the partition key `USER#<sub>`, where `<sub>` is the Cognito user id. The sort key is `HABIT#<ulid>` for a habit and `COMP#<habitId>#<yyyy-mm-dd>` for one day of a habit that has any completions. A habit has a `goal` (completions wanted per scheduled day, 1 to 100, default 1) and a completion item has a `count` (how many were logged that day). A day is done, and extends the streak, once `count` reaches `goal`. Items saved before goals existed have neither attribute and read as goal 1 and count 1. The table is retained when the stack is deleted and has point-in-time recovery enabled.
 
 ## CI
 

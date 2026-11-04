@@ -20,6 +20,11 @@
   color: #ffffff;
 }
 
+.week-row__cell--partial {
+  background: var(--habit-step-2);
+  color: var(--color-ink);
+}
+
 .week-row__cell--open {
   background: var(--color-empty);
   color: #4a5750;
