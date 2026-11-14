@@ -183,25 +183,11 @@ describe("WebStack", () => {
             .join("");
     expect(csp).toBe(
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-        "connect-src 'self' https://cognito-idp.us-east-1.amazonaws.com; " +
-        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     expect(csp).not.toContain("unsafe-inline");
     expect(csp).not.toContain("unsafe-eval");
     expect(csp.split(/[\s;]+/)).not.toContain("*");
-  });
-
-  it("adds the API endpoint to connect-src only when provided", () => {
-    const endpoint = "https://abc.execute-api.us-east-1.amazonaws.com";
-    const withApi = Template.fromStack(
-      new WebStack(new App(), "TestWebApi", { webAssetPath: fixture, apiEndpoint: endpoint }),
-    );
-    const policies = Object.values(withApi.findResources("AWS::CloudFront::ResponseHeadersPolicy"));
-    const csp = JSON.stringify(
-      policies[0]?.Properties.ResponseHeadersPolicyConfig.SecurityHeadersConfig
-        .ContentSecurityPolicy,
-    );
-    expect(csp).toContain(`amazonaws.com ${endpoint};`);
   });
 
   it("publishes the web build and invalidates the cache", () => {
