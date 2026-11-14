@@ -32,7 +32,6 @@ export interface WebCustomDomain {
 
 export interface WebStackProps extends StackProps {
   readonly webAssetPath?: string;
-  readonly apiEndpoint?: string;
   readonly customDomain?: WebCustomDomain;
 }
 
@@ -113,19 +112,13 @@ export class WebStack extends Stack {
       enforceSSL: true,
     });
 
-    // Assumes the app has no inline styles or scripts. connect-src uses this
-    // stack's region, while the app takes the Cognito region from the user pool
-    // id, so the CSP only matches if TrackThatAuth is deployed to the same
-    // region as this stack.
+    // Assumes the app has no inline styles or scripts and makes no network requests.
     const contentSecurityPolicy = [
       "default-src 'self'",
       "script-src 'self'",
       "style-src 'self'",
       "img-src 'self' data:",
-      [
-        `connect-src 'self' https://cognito-idp.${this.region}.amazonaws.com`,
-        ...(props?.apiEndpoint === undefined ? [] : [props.apiEndpoint]),
-      ].join(" "),
+      "connect-src 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
